@@ -1,0 +1,4 @@
+[{"role": "user", "content": "Ill let you know abput me laater"}, 
+{"role": "assistant", "content": "سأخبرك عني لاحقًا\n"}, 
+{"role": "user", "content": "how can you code "}, 
+{"role": "assistant", "content": "كيف يمكنك البرمجة؟\n"}]
