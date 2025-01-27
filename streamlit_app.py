@@ -41,10 +41,10 @@ safety_settings = [
 def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', instruction='0'):
     # Initialize Vertex AI with project and location from secrets
     service_account_info = st.secrets["gcp_service_account"]
-    aiplatform.init(
+    vertexai.init(
         project = service_account_info["project_id"],
         location = "us-central1",
-        credentials = aiplatform.gapic.service_account.Credentials.from_service_account_info(service_account_info),
+        credentials = service-account-key.json,
     )
     
     model = GenerativeModel(
