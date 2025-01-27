@@ -7,6 +7,7 @@ from io import StringIO
 import requests  # pip install requests
 from streamlit_lottie import st_lottie  
 import vertexai
+import aiplatform
 from typing import List
 from google.cloud import translate
 from vertexai.generative_models import GenerativeModel, Part, SafetySetting
@@ -41,10 +42,10 @@ safety_settings = [
 def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', instruction='0'):
     # Initialize Vertex AI with project and location from secrets
     service_account_info = st.secrets["gcp_service_account"]
-    vertexai.init(
+    aiplatform.init(
         project = service_account_info["project_id"],
         location = "us-central1",
-        credentials = vertexai.gapic.service_account.Credentials.from_service_account_info(service_account_info),
+        credentials = aiplatform.gapic.service_account.Credentials.from_service_account_info(service_account_info),
     )
     
     model = GenerativeModel(
