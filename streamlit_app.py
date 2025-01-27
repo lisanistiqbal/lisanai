@@ -5,11 +5,12 @@ import json
 import time
 from io import StringIO
 import requests  # pip install requests
-from streamlit_lottie import st_lottie  # pip install streamlit-lottie
+from streamlit_lottie import st_lottie  
 import vertexai
 from typing import List
 from google.cloud import translate
 from vertexai.generative_models import GenerativeModel, Part, SafetySetting
+import os
 
 generation_config = {
     "candidate_count": 1,
@@ -37,11 +38,20 @@ safety_settings = [
         threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
     ),
 ]
-def generate(text, src, trg, llm_model,tone = 'formal', domain = 'Healthcare',  instruction = '0'):
-    vertexai.init(project = "lisanai", location = "us-central1")
-    model = GenerativeModel(
-        llm_model,
+def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', instruction='0'):
+    # Initialize Vertex AI with project and location from secrets
+    service_account_info = st.secrets["gcp_service_account"]
+    vertexai.init(
+        project=service_account_info["project_id"],
+        location="us-central1",
+        credentials=aiplatform.gapic.service_account.Credentials.from_service_account_info(service_account_info),
     )
+    
+    model = GenerativeModel(
+        model_name=llm_model
+    )
+
+    # Generate content
     responses = model.generate_content(
         [f'You are an expert Translator. You are tasked to translate documents from {src} to {trg}. \
          Please provide an accurate translation of this text which is from {domain} and return translation text only, considering the {tone} \
