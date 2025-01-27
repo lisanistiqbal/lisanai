@@ -44,7 +44,7 @@ def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', inst
     vertexai.init(
         project = service_account_info["project_id"],
         location = "us-central1",
-        credentials = service-account-key.json,
+        credentials = service_account_key.json,
     )
     
     model = GenerativeModel(
