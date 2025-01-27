@@ -8,7 +8,7 @@ import requests  # pip install requests
 from streamlit_lottie import st_lottie  
 import vertexai
 from typing import List
-from google.cloud import translate, aiplatfrom
+from google.cloud import translate, aiplatform
 from vertexai.generative_models import GenerativeModel, Part, SafetySetting
 import os
 
