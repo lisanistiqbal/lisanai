@@ -42,9 +42,9 @@ def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', inst
     # Initialize Vertex AI with project and location from secrets
     service_account_info = st.secrets["gcp_service_account"]
     vertexai.init(
-        project=service_account_info["project_id"],
-        location="us-central1",
-        credentials=aiplatform.gapic.service_account.Credentials.from_service_account_info(service_account_info),
+        project = service_account_info["project_id"],
+        location = "us-central1",
+        credentials = vertexai.gapic.service_account.Credentials.from_service_account_info(service_account_info),
     )
     
     model = GenerativeModel(
