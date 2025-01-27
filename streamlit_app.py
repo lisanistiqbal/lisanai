@@ -37,8 +37,8 @@ safety_settings = [
         threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
     ),
 ]
-def generate(text, src, trg, domain, tone, llm_model, instruction=0):
-    vertexai.init(project="lisanai", location="us-central1")
+def generate(text, src, trg, llm_model,tone = 'formal', domain = 'Healthcare',  instruction = '0'):
+    vertexai.init(project = "lisanai", location = "us-central1")
     model = GenerativeModel(
         llm_model,
     )
