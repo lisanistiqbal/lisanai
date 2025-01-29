@@ -169,7 +169,7 @@ if audio_on :
     
     if st.button("Get Transcript"):
         response = get_transcript(audio, audio_language_dict[audio_language])
-        st.download_button(label="Download Translated File", data = response, file_name = 'Translated_file.txt')
+        st.download_button(label="Download Transcript File", data = response, file_name = 'Transcript.txt')
     
 else:
     b1, b2 = st.columns([1,1], vertical_alignment="center")
