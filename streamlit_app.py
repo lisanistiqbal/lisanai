@@ -184,15 +184,6 @@ if audio_on :
             }
         df = pd.DataFrame(data)
         df.to_excel('Transcript.xlsx', index=True)
-        df_csv = df.to_csv(index=False).encode("utf-8")
-
-        # Download button for CSV
-        st.download_button(
-            label="Download Transcript File",
-            data=df_csv,
-            file_name="Transcript.csv",
-            mime="text/csv"
-        )
         with open('Transcript.xlsx', "rb") as template_file:
             template_byte = template_file.read()
     
