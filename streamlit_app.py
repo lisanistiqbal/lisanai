@@ -3,7 +3,8 @@ import base64
 import streamlit as st
 import json
 import time
-from io import StringIO
+from io import StringIO, 
+import io
 import requests  # pip install requests
 from streamlit_lottie import st_lottie  
 import vertexai
@@ -182,12 +183,18 @@ if audio_on :
                 "Transcripts": transcript
             }
         df = pd.DataFrame(data)
-        #df.to_excel('Transcript.xlsx', index=True)
-        st.download_button(label='📥 Download Transcript',
-                            data=df ,
-                            file_name= 'Transcript.xlsx')
-    
-        #st.download_button(label="Download Transcript File", data = response, file_name = 'Transcript.txt')
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="Sheet1")
+            writer.close()
+        
+        # Create download button
+        st.download_button(
+            label="Download Transcript",
+            data=output.getvalue(),
+            file_name="Transcript.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
     
 else:
     b1, b2 = st.columns([1,1], vertical_alignment="center")
