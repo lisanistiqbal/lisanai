@@ -183,6 +183,7 @@ if audio_on :
                 "Transcripts": transcript
             }
         df = pd.DataFrame(data)
+        df.to_excel('Transcript.xlsx', index=True)
         df_csv = df.to_csv(index=False).encode("utf-8")
 
         # Download button for CSV
@@ -192,6 +193,13 @@ if audio_on :
             file_name="Transcript.csv",
             mime="text/csv"
         )
+        with open(file_name, "rb") as template_file:
+            template_byte = template_file.read()
+    
+        st.download_button(label="Click to Download Template File",
+                            data=template_byte,
+                            file_name="Transcript.xlsx",
+                            mime='application/octet-stream')
 else:
     b1, b2 = st.columns([1,1], vertical_alignment="center")
     languages = {
