@@ -182,9 +182,11 @@ if audio_on :
                 "Transcripts": transcript
             }
         df = pd.DataFrame(data)
-        if st.button("Download Transcript (.xlsx)"):
-            df.to_excel('Transcript.xlsx', index=True)
-        
+        #df.to_excel('Transcript.xlsx', index=True)
+        st.download_button(label='📥 Download Transcript',
+                            data=df ,
+                            file_name= 'Transcript.xlsx')
+    
         #st.download_button(label="Download Transcript File", data = response, file_name = 'Transcript.txt')
     
 else:
