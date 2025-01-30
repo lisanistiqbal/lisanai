@@ -183,19 +183,15 @@ if audio_on :
                 "Transcripts": transcript
             }
         df = pd.DataFrame(data)
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            df.to_excel(writer, index=False, sheet_name="Sheet1")
-            writer.close()
-        
-        # Create download button
+        df_csv = df.to_csv(index=False).encode("utf-8")
+
+        # Download button for CSV
         st.download_button(
-            label="Download Transcript",
-            data=output.getvalue(),
-            file_name="Transcript.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            label="Download Transcript File",
+            data=df_csv,
+            file_name="Transcript.csv",
+            mime="text/csv"
         )
-    
 else:
     b1, b2 = st.columns([1,1], vertical_alignment="center")
     languages = {
