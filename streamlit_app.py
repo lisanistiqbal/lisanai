@@ -193,7 +193,7 @@ if audio_on :
             file_name="Transcript.csv",
             mime="text/csv"
         )
-        with open(df, "rb") as template_file:
+        with open('Transcript.xlsx', "rb") as template_file:
             template_byte = template_file.read()
     
         st.download_button(label="Click to Download Template File",
