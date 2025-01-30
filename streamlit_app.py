@@ -85,7 +85,7 @@ def get_transcript(audio_file, audio_language = 'unknown'):
 
     response = requests.post(url, files=files, data=data, headers=headers)
 
-    return eval(response.text)['transcript']
+    return response
 
 def generate_NMT(strs_to_translate: List[str], src: str, tgt: str
 ) -> translate.TranslationServiceClient:
@@ -168,8 +168,24 @@ if audio_on :
         )
     
     if st.button("Get Transcript"):
+        start_time, end_time, speaker_id, transcript =[], [], [], []
         response = get_transcript(audio, audio_language_dict[audio_language])
-        st.download_button(label="Download Transcript File", data = response, file_name = 'Transcript.txt')
+        for i in eval(response.text)['diarized_transcript']['entries']:
+              start_time.append(i['start_time_seconds'])
+              end_time.append(i['end_time_seconds'])
+              speaker_id.append(i['speaker_id'])
+              transcript.append(i['transcript'])
+        data = {
+                "Start Time": start_time,
+                "End Time": end_time,
+                "Speaker IDs": speaker_id,
+                "Transcripts": transcript
+            }
+        df = pd.DataFrame(data)
+        if st.button("Download Transcript (.xlsx)"):
+            df.to_excel('Transcript.xlsx', index=True)
+        
+        #st.download_button(label="Download Transcript File", data = response, file_name = 'Transcript.txt')
     
 else:
     b1, b2 = st.columns([1,1], vertical_alignment="center")
@@ -471,8 +487,8 @@ else:
                 assistant_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "assistant"]
 
                 data = {"User": user_messages, "AI Response": assistant_messages}
-                df = pd.DataFrame(data)
+                df_chat = pd.DataFrame(data)
 
                 output_file = "chat_log.xlsx"
-                df.to_excel(output_file, index=False)
+                df_chat.to_excel(output_file, index=False)
 
