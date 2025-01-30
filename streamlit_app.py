@@ -3,7 +3,7 @@ import base64
 import streamlit as st
 import json
 import time
-from io import StringIO, 
+from io import StringIO
 import io
 import requests  # pip install requests
 from streamlit_lottie import st_lottie  
