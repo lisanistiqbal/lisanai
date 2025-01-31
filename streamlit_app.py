@@ -3,8 +3,7 @@ import base64
 import streamlit as st
 import json
 import time
-from io import StringIO
-import io
+from io import StringIO, BytesIO
 import requests  # pip install requests
 from streamlit_lottie import st_lottie  
 import vertexai
@@ -12,6 +11,7 @@ from typing import List
 from google.cloud import translate, aiplatform
 from vertexai.generative_models import GenerativeModel, Part, SafetySetting
 import os
+from pydub import AudioSegment
 
 generation_config = {
     "candidate_count": 1,
@@ -45,7 +45,7 @@ def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', inst
     vertexai.init(
         project = service_account_info["project_id"],
         location = "us-central1",
-        credentials = service_account_key.json,
+        credentials = 'service_account_key.json',
     )
     
     model = GenerativeModel(
@@ -64,14 +64,12 @@ def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', inst
 
     return responses.candidates[0].content.parts[0].text
 
-
-def get_transcript(audio_file, audio_language = 'unknown'):
+def get_transcript(audio_file, audio_language='unknown'): 
     url = "https://api.sarvam.ai/speech-to-text"
 
     files = {
-        "file": (audio_file.name, audio_file, audio_file.type)  # Directly use UploadedFile object
+        "file": ('audio.wav', open(audio_file,'rb'), "audio/wav")  # Convert to WAV format
     }
-    
 
     data = {
         "language_code": audio_language,
@@ -81,12 +79,33 @@ def get_transcript(audio_file, audio_language = 'unknown'):
     }
 
     headers = {
-        "api-subscription-key": "5a73b765-cbce-43bd-8080-c7430ce4d961"
+        "api-subscription-key": "5a73b765-cbce-43bd-8080-c7430ce4d961"  # Replace with your API key
     }
 
     response = requests.post(url, files=files, data=data, headers=headers)
 
     return response
+
+
+def split_audio(audio_file, segment_length=149*60*100, output_dir="audio_segments"):
+    os.makedirs(output_dir, exist_ok=True)  # Create directory if not exists
+
+    audio = AudioSegment.from_file(audio_file)
+    total_duration = len(audio)  # Duration in milliseconds
+
+    if total_duration <= segment_length:
+        segment_path = os.path.join(output_dir, f"segment.wav")
+    else:
+        segments = []
+        for i, start in enumerate(range(0, total_duration, segment_length)):
+            end = min(start + segment_length, total_duration)
+            segment = audio[start:end]
+            
+            segment_path = os.path.join(output_dir, f"segment_{i}.wav")
+            segment.export(segment_path, format="wav")  # Save segment
+            segments.append(segment_path)
+
+    return output_dir
 
 def generate_NMT(strs_to_translate: List[str], src: str, tgt: str
 ) -> translate.TranslationServiceClient:
@@ -143,8 +162,8 @@ with a2:
 
 audio_on = st.toggle("Audio")
 
-if audio_on :
-    audio = st.file_uploader("Upload an audio file", type=["mp3", "wav", "wave", "x-wav", "mpeg"])
+if audio_on:
+    audio_file = st.file_uploader("Upload an audio file", type=["mp3", "wav", "wave", "x-wav", "mpeg"])
 
     audio_language_dict = {
         "Unknown": "unknown",
@@ -168,29 +187,41 @@ if audio_on :
             index=0
         )
     
-    if st.button("Get Transcript"):
-        start_time, end_time, speaker_id, transcript =[], [], [], []
-        response = get_transcript(audio, audio_language_dict[audio_language])
-        for i in eval(response.text)['diarized_transcript']['entries']:
-              start_time.append(i['start_time_seconds'])
-              end_time.append(i['end_time_seconds'])
-              speaker_id.append(i['speaker_id'])
-              transcript.append(i['transcript'])
-        data = {
-                "Start Time": start_time,
-                "End Time": end_time,
-                "Speaker IDs": speaker_id,
-                "Transcripts": transcript
-            }
-        df = pd.DataFrame(data)
-        df.to_excel('Transcript.xlsx', index=True)
-        with open('Transcript.xlsx', "rb") as template_file:
-            template_byte = template_file.read()
+    if st.button("Get Transcript"):                    
+        if audio_file is not None:
+            st.audio(audio_file, format="audio/wav")
+
+            # Convert Streamlit file to BytesIO
+            audio_bytes = BytesIO(audio_file.read())
+
+            # Split the audio into segments
+            output_dir = split_audio(audio_bytes)
+            responses = []
+            start_time, end_time, speaker_id, transcript =[], [], [], []
+            for audio in output_dir:
+                response = get_transcript(audio, audio_language_dict[audio_language])
+                
+                for i in eval(response.text)['diarized_transcript']['entries']:
+                        start_time.append(i['start_time_seconds'])
+                        end_time.append(i['end_time_seconds'])
+                        speaker_id.append(i['speaker_id'])
+                        transcript.append(i['transcript'])
+            data = {
+                    "Start Time": start_time,
+                    "End Time": end_time,
+                    "Speaker IDs": speaker_id,
+                    "Transcripts": transcript
+                }
+            df = pd.DataFrame(data)
+            df.to_excel('Transcript.xlsx', index=True)
+            with open('Transcript.xlsx', "rb") as template_file:
+                template_byte = template_file.read()
+
+            st.download_button(label="Click to Download Template File",
+                                data=template_byte,
+                                file_name="Transcript.xlsx",
+                                mime='application/octet-stream')
     
-        st.download_button(label="Click to Download Template File",
-                            data=template_byte,
-                            file_name="Transcript.xlsx",
-                            mime='application/octet-stream')
 else:
     b1, b2 = st.columns([1,1], vertical_alignment="center")
     languages = {
@@ -491,8 +522,8 @@ else:
                 assistant_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "assistant"]
 
                 data = {"User": user_messages, "AI Response": assistant_messages}
-                df_chat = pd.DataFrame(data)
+                df = pd.DataFrame(data)
 
                 output_file = "chat_log.xlsx"
-                df_chat.to_excel(output_file, index=False)
+                df.to_excel(output_file, index=False)
 
