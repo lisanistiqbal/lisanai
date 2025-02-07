@@ -217,7 +217,7 @@ if audio_on:
             with open('Transcript.xlsx', "rb") as template_file:
                 template_byte = template_file.read()
 
-            st.download_button(label="Click to Download Template File",
+            st.download_button(label="Download Transcript",
                                 data=template_byte,
                                 file_name="Transcript.xlsx",
                                 mime='application/octet-stream')
