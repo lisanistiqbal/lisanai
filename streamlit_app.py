@@ -20,7 +20,7 @@ generation_config = {
     "top_p": 0.95,
     "top_k": 1,
 }
-
+genai.configure(api_key="AIzaSyCeKd7FcGWZs0wWDXTQZtHPR87kJL0Cehk")
 safety_settings = [
     SafetySetting(
         category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
@@ -64,6 +64,16 @@ def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', inst
     )
 
     return responses.candidates[0].content.parts[0].text
+
+def translate_text(text, src, trg, llm_model, tone='formal', domain='Healthcare', instruction='0'):
+    prompt =f'You are an expert Translator. You are tasked to translate documents from {src} to {trg}. \
+             Please provide an accurate translation of this text which is from {domain} and return translation text only, considering the {tone} \
+             Instruction: {instruction} \
+             :{text}'
+    model = genai.GenerativeModel(llm_model)
+    response = model.generate_content(prompt)
+    
+    return response.text.strip()
 
 def get_transcript(audio_file, audio_language='unknown'): 
     url = "https://api.sarvam.ai/speech-to-text"
@@ -426,7 +436,7 @@ else:
 
     llm_model =st.selectbox(
             "Model Selection",
-            ("gemini-1.5-flash-002", "gemini-1.5-pro-002", "NMT"),
+            ("gemini-1.5-flash-002", "gemini-1.5-pro-002"),
             index=0
         )
     # Layout with columns
@@ -501,7 +511,7 @@ else:
                     contents = [prompt]
                     response = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
                 else:
-                    response = f"{generate(prompt, languages[source], languages[target], llm_model)}"    # Replace with your `generate` function
+                    response = f"{translate_text(text, src, trg, llm_model)}"    # Replace with your `generate` function
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 status.update(label="Translated", state="complete", expanded=True)
 
