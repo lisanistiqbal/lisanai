@@ -529,12 +529,17 @@ else:
                 st.session_state.messages = []
 
         with c3: 
-            if st.button("Download Chat (.xlsx)"):
-                user_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "user"]
-                assistant_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "assistant"]
+            user_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "user"]
+            assistant_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "assistant"]
 
-                data = {"User": user_messages, "AI Response": assistant_messages}
-                df = pd.DataFrame(data)
+            data1 = {"User": user_messages, "AI Response": assistant_messages}
+            df_chat = pd.DataFrame(data1)
 
-                output_file = "chat_log.xlsx"
-                df.to_excel(output_file, index=False)
+            df_chat.to_excel('Chats.xlsx', index=True)
+            with open('Chats.xlsx', "rb") as template_file:
+                template_byte = template_file.read()
+
+            st.download_button(label="Download Chats",
+                                data=template_byte,
+                                file_name="Chats.xlsx",
+                                mime='application/octet-stream')
