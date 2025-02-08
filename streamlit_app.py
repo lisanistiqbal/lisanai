@@ -512,7 +512,7 @@ else:
                     contents = [prompt]
                     response = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
                 else:
-                    response = f"{translate_text(text, src, trg, llm_model)}"    # Replace with your `generate` function
+                    response = f"{translate_text(prompt, languages[source], languages[target], llm_model)}"    # Replace with your `generate` function
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 status.update(label="Translated", state="complete", expanded=True)
 
@@ -538,4 +538,3 @@ else:
 
                 output_file = "chat_log.xlsx"
                 df.to_excel(output_file, index=False)
-
