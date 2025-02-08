@@ -66,7 +66,7 @@ def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', inst
 
     return responses.candidates[0].content.parts[0].text
 
-def translate_text(text, src, trg, llm_model, tone='formal', domain='Healthcare', instruction='0'):
+def translate_text(text, src, trg, llm_model, tone, domain, instruction):
     prompt =f'You are an expert Translator. You are tasked to translate documents from {src} to {trg}. \
              Please provide an accurate translation of this text which is from {domain} and return translation text only, considering the {tone} \
              Instruction: {instruction} \
@@ -458,6 +458,24 @@ else:
             index=7,
             key="target_lang"
         )
+    x1, x2, x3 = st.columns([1, 1, 1])
+
+    with x1:
+        tone = st.selectbox(
+            "Translation Tone",
+            ('Normal', 'Formal', 'Infomal'),
+            index=0,
+            key="lang_tone"
+        )
+    with x2:
+        domain = st.selectbox(
+            "Translation Domain",
+            ('General', 'Financial', 'Educational', 'Healthcare', 'Technology', 'Business'),
+            index=0,
+            key="lang_domain"
+        )
+    with x3:
+        instruction = st.text_input("Translation Instruction", "None")
 
     on = st.toggle("Text File")
 
@@ -481,7 +499,7 @@ else:
                     translated_data = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
                     st.download_button(label="Download Translated File", data = translated_data, file_name = 'Translated_file.txt')
                 else:
-                    translated_data = generate(string_data, languages[source], languages[target], llm_model)
+                    translated_data = translate_text(string_data, languages[source], languages[target], llm_model, tone, domain, instruction)
                     st.download_button(label="Download Translated File", data = translated_data, file_name = 'Translated_file.txt')
         
                 
@@ -512,11 +530,11 @@ else:
                     contents = [prompt]
                     response = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
                 else:
-                    response = f"{translate_text(prompt, languages[source], languages[target], llm_model)}"    # Replace with your `generate` function
+                    response = f"{translate_text(prompt, languages[source], languages[target], llm_model, tone, domain, instruction)}"    # Replace with your `generate` function
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 status.update(label="Translated", state="complete", expanded=True)
 
-        # Display chat history
+        # Display chat history  
         for message in st.session_state.messages:
             if message["role"] == "user":
                 st.chat_message("user").write(message["content"])
