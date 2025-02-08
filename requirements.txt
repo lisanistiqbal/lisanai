@@ -18,8 +18,11 @@ gcloud==0.18.3
 gitdb==4.0.11
 GitPython==3.1.43
 google==3.0.0
+google-ai-generativelanguage==0.6.15
 google-api-core==2.24.0
+google-api-python-client==2.160.0
 google-auth==2.37.0
+google-auth-httplib2==0.2.0
 google-cloud-aiplatform==1.75.0
 google-cloud-bigquery==3.27.0
 google-cloud-core==2.4.1
@@ -27,7 +30,7 @@ google-cloud-resource-manager==1.14.0
 google-cloud-storage==2.19.0
 google-cloud-translate==3.19.0
 google-crc32c==1.6.0
-google-generativeai==0.7.2
+google-generativeai==0.8.4
 google-resumable-media==2.7.2
 googleapis-common-protos==1.66.0
 grpc-google-iam-v1==0.13.1
@@ -35,6 +38,8 @@ grpcio==1.68.1
 grpcio-status==1.68.1
 httplib2==0.22.0
 idna==3.10
+imageio==2.37.0
+imageio-ffmpeg==0.6.0
 Jinja2==3.1.5
 joblib==1.4.2
 jsonschema==4.23.0
@@ -58,6 +63,7 @@ platformdirs==4.3.6
 pooch==1.8.2
 proto-plus==1.25.0
 protobuf==5.29.2
+psutil==6.1.1
 pyarrow==18.1.0
 pyasn1==0.6.1
 pyasn1_modules==0.4.1
@@ -89,7 +95,9 @@ tenacity==9.0.0
 threadpoolctl==3.5.0
 toml==0.10.2
 tornado==6.4.2
+tqdm==4.67.1
 typing_extensions==4.12.2
 tzdata==2024.2
+uritemplate==4.1.1
 urllib3==2.3.0
 watchdog==6.0.0
