@@ -12,6 +12,7 @@ from google.cloud import translate, aiplatform
 from vertexai.generative_models import GenerativeModel, Part, SafetySetting
 import os
 from pydub import AudioSegment
+import google.generativeai as genai
 
 generation_config = {
     "candidate_count": 1,
