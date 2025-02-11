@@ -21,7 +21,7 @@ generation_config = {
     "top_p": 0.95,
     "top_k": 1,
 }
-genai.configure(api_key="AIzaSyCeKd7FcGWZs0wWDXTQZtHPR87kJL0Cehk")
+genai.configure(api_key="AIzaSyBBgitT7oyg-VTWd8FdPmvS3Xt4odZMQtU")
 safety_settings = [
     SafetySetting(
         category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
