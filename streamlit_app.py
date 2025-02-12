@@ -437,7 +437,7 @@ else:
 
     llm_model =st.selectbox(
             "Model Selection",
-            ("gemini-1.5-flash-002", "gemini-1.5-pro-002"),
+            ("gemini-2.0-flash", "gemini-1.5-flash-002", "gemini-1.5-pro-002"),
             index=0
         )
     # Layout with columns
