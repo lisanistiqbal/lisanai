@@ -13,6 +13,7 @@ from vertexai.generative_models import GenerativeModel, Part, SafetySetting
 import os
 from pydub import AudioSegment
 import google.generativeai as genai
+import pyperclip
 
 generation_config = {
     "candidate_count": 1,
@@ -21,7 +22,7 @@ generation_config = {
     "top_p": 0.95,
     "top_k": 1,
 }
-genai.configure(api_key="AIzaSyBBgitT7oyg-VTWd8FdPmvS3Xt4odZMQtU")
+genai.configure(api_key="AIzaSyCeKd7FcGWZs0wWDXTQZtHPR87kJL0Cehk")
 safety_settings = [
     SafetySetting(
         category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
@@ -458,7 +459,7 @@ else:
             index=7,
             key="target_lang"
         )
-    x1, x2, x3 = st.columns([1, 1, 1])
+    x1, x2= st.columns([1, 1])
 
     with x1:
         tone = st.selectbox(
@@ -474,9 +475,9 @@ else:
             index=0,
             key="lang_domain"
         )
-    with x3:
-        instruction = st.text_input("Translation Instruction", "None")
-
+    
+    instruction = st.text_area("Translation Instruction", 'None', height=250)
+    
     on = st.toggle("Text File")
 
     if on:
@@ -515,7 +516,7 @@ else:
             st.session_state.messages = []
 
 
-
+        res = []
         # Chat input box
         prompt = st.chat_input("Type a text you want to translate")
         if prompt:
@@ -531,15 +532,20 @@ else:
                     response = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
                 else:
                     response = f"{translate_text(prompt, languages[source], languages[target], llm_model, tone, domain, instruction)}"    # Replace with your `generate` function
+                    res.append(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 status.update(label="Translated", state="complete", expanded=True)
 
-        # Display chat history  
+        
         for message in st.session_state.messages:
             if message["role"] == "user":
                 st.chat_message("user").write(message["content"])
             else:
                 st.chat_message("assistant").write(message["content"])
+        
+        if st.button("Copy Response"):
+            pyperclip.copy(message["content"])
+            st.success("Copied to clipboard!")
 
         c1, c3 = st.columns([0.1, 0.4])
         with c1:
