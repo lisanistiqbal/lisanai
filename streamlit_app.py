@@ -518,7 +518,11 @@ else:
             st.write("Preview of Uploaded File:", df_selected.head())
             mandatory_translations = "\n".join([f"- {row['word']} → {row['translation']}" for _, row in df_selected.iterrows()])
     
-        
+        else:
+            mandatory_translations = 'None'
+
+    else:
+        mandatory_translations = 'None'
     
     on = st.toggle("Text File")
 
