@@ -67,11 +67,29 @@ def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', inst
 
     return responses.candidates[0].content.parts[0].text
 
-def translate_text(text, src, trg, llm_model, tone, domain, instruction):
-    prompt =f'You are an expert Translator. You are tasked to translate documents from {src} to {trg}. \
-             Please provide an accurate translation of this text which is from {domain} and return translation text only, considering the {tone} \
-             Instruction: {instruction} \
-             :{text}'
+def translate_text(text, src, trg, llm_model, tone, domain, instruction, mandatory_translations = 'None'):
+
+    # Stronger Prompt Template
+    prompt = f"""
+    You are an expert Translator create by Lisan India. Your task is to translate texts **from {src} to {trg}** accurately. 
+    The text belongs to the **{domain}** domain and should be translated in a **{tone}** tone.
+
+    ### **Important Instructions:**
+    1. **Strictly use the provided mandatory translations** if 1st word is from {src} language and other is in {trg} language.
+    2. **Do not modify** words that are replaced based on the dictionary.
+    3. **Ensure smooth, natural readability** while keeping accuracy.
+
+    ### **Mandatory Translations (Do not modify these words):**  
+    {mandatory_translations}
+
+    ### **Instruction:**  
+    {instruction}
+
+    ### **Text to Translate:**  
+    {text}
+
+    ### **Your Translation:**  
+    """
     model = genai.GenerativeModel(llm_model)
     response = model.generate_content(prompt)
     
@@ -477,6 +495,28 @@ else:
         )
     
     instruction = st.text_area("Translation Instruction", 'None', height=250)
+
+    uploaded_file = st.file_uploader("Upload your mandatory translations (Excel file)", type=["xlsx"])
+
+    if uploaded_file is not None:
+        df = pd.read_excel(uploaded_file, header=None)  # Read without headers
+
+        # Display first few rows for reference
+        #st.write("Preview of Uploaded File:", df.head())
+
+        if len(df.columns) >= 2:
+            # Let user select columns based on position
+            word_col = 0 #st.number_input("Select column index for 'Words' (starting from 0)", min_value=0, max_value=len(df.columns)-1, value=0, step=1)
+            translation_col = 1 #st.number_input("Select column index for 'Translations' (starting from 0)", min_value=0, max_value=len(df.columns)-1, value=1, step=1)
+
+            # Extract selected columns
+            df_selected = df.iloc[:, [word_col, translation_col]]
+            df_selected.columns = ["word", "translation"]  # Rename for consistency
+            
+            st.write("Preview of Uploaded File:", df_selected.head())
+            mandatory_translations = "\n".join([f"- {row['word']} → {row['translation']}" for _, row in df_selected.iterrows()])
+    
+        
     
     on = st.toggle("Text File")
 
@@ -500,7 +540,7 @@ else:
                     translated_data = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
                     st.download_button(label="Download Translated File", data = translated_data, file_name = 'Translated_file.txt')
                 else:
-                    translated_data = translate_text(string_data, languages[source], languages[target], llm_model, tone, domain, instruction)
+                    translated_data = translate_text(string_data, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)
                     st.download_button(label="Download Translated File", data = translated_data, file_name = 'Translated_file.txt')
         
                 
@@ -516,7 +556,7 @@ else:
             st.session_state.messages = []
 
 
-        res = []
+        res = [' ']
         # Chat input box
         prompt = st.chat_input("Type a text you want to translate")
         if prompt:
@@ -531,7 +571,7 @@ else:
                     contents = [prompt]
                     response = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
                 else:
-                    response = f"{translate_text(prompt, languages[source], languages[target], llm_model, tone, domain, instruction)}"    # Replace with your `generate` function
+                    response = f"{translate_text(prompt, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)}"    # Replace with your `generate` function
                     res.append(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 status.update(label="Translated", state="complete", expanded=True)
@@ -541,12 +581,9 @@ else:
             if message["role"] == "user":
                 st.chat_message("user").write(message["content"])
             else:
-                st.chat_message("assistant").write(message["content"])
+                st.chat_message("assistant").write(message["content"], key="copy_area")
         
-        if st.button("Copy Response"):
-            pyperclip.copy(message["content"])
-            st.success("Copied to clipboard!")
-
+        
         c1, c3 = st.columns([0.1, 0.4])
         with c1:
             if st.button("🗑️ Clear Chat"):
