@@ -22,7 +22,9 @@ generation_config = {
     "top_p": 0.95,
     "top_k": 1,
 }
-genai.configure(api_key="AIzaSyCeKd7FcGWZs0wWDXTQZtHPR87kJL0Cehk")
+api_key = st.secrets["genai"]["api_key"]
+
+genai.configure(api_key=api_key)
 safety_settings = [
     SafetySetting(
         category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
