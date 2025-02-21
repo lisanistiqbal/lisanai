@@ -14,6 +14,9 @@ import os
 from pydub import AudioSegment
 import google.generativeai as genai
 import pyperclip
+import PyPDF2
+import docx
+import xml.etree.ElementTree as ET
 
 generation_config = {
     "candidate_count": 1,
@@ -527,28 +530,91 @@ else:
     on = st.toggle("Text File")
 
     if on:
-        uploaded_file = st.file_uploader(" ")
-        if uploaded_file is not None:
-            # To read file as bytes:
-            #bytes_data = uploaded_file.getvalue()
-            #st.write(bytes_data)
-            filename = uploaded_file.name
-            # To convert to a string based IO:
-            stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
-            #st.write(stringio)
+        uploaded_file = st.file_uploader("Upload a file", type=["txt", "xlsx","csv", "pdf", "docx", "xliff"])
 
-            # To read file as string:
-            string_data = stringio.read()
-            #st.write()
+        if uploaded_file is not None:
+            filename = uploaded_file.name
+            file_extension = filename.split(".")[-1]
+
+            if file_extension in ["txt", "csv"]:
+                # Read text or CSV file
+                stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
+                text = stringio.read()
+                st.write("Extracted Text:", text)
+            
+            elif file_extension == "xlsx":
+                df = pd.read_excel(uploaded_file, sheet_name=None)  # Load all sheets
+                text_data = []
+                for sheet_name, sheet in df.items():
+                    #text_data.append(f"Sheet: {sheet_name}")
+                    text_data.append(sheet.to_string(index=False))
+                text = "\n".join(text_data)
+                st.write("Extracted Text:", text)
+
+            elif file_extension == "pdf":
+                # Read PDF file
+                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                text = "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
+                st.write("Extracted Text:", text)
+
+            elif file_extension == "docx":
+                # Read DOCX file
+                doc = docx.Document(uploaded_file)
+                text = "\n".join([para.text for para in doc.paragraphs])
+                st.write("Extracted Text:", text)
+
+            elif file_extension == "xliff":
+                # Read XLIFF (XML) file
+                tree = ET.parse(uploaded_file)
+                root = tree.getroot()
+                text_elements = [elem.text for elem in root.iter() if elem.text]
+                text = "\n".join(text_elements)
+                st.write("Extracted Text:", text)
+
+            else:
+                st.error("Unsupported file format")
             if st.button("Translate"):
                 if llm_model == "NMT":
-                    contents = [string_data]
+                    contents = [text]
                     translated_data = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
-                    st.download_button(label="Download Translated File", data = translated_data, file_name = 'Translated_file.txt')
+                    
                 else:
-                    translated_data = translate_text(string_data, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)
-                    st.download_button(label="Download Translated File", data = translated_data, file_name = 'Translated_file.txt')
-        
+                    translated_text = translate_text(text, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)
+                    st.write(translated_text)
+                if file_extension in ["txt", "csv"]:
+                    # Save as text file
+                    st.download_button("Download Translated File", data=translated_text, file_name=f"Translated_{filename}")
+                elif file_extension == "xlsx":
+                    df = pd.DataFrame([translated_text.split("\n")])  # Convert text to DataFrame
+                    xlsx_buffer = BytesIO()
+                    with pd.ExcelWriter(xlsx_buffer, engine="xlsxwriter") as writer:
+                        df.to_excel(writer, sheet_name="Translated", index=False)
+                    xlsx_buffer.seek(0)
+                    st.download_button("Download Translated File", data=xlsx_buffer, file_name=f"Translated_{filename}")
+
+                elif file_extension == "docx":
+                    # Save as DOCX file
+                    translated_doc = docx.Document()
+                    translated_doc.add_paragraph(translated_text)
+                    docx_buffer = BytesIO()
+                    translated_doc.save(docx_buffer)
+                    docx_buffer.seek(0)
+                    st.download_button("Download Translated File", data=docx_buffer, file_name=f"Translated_{filename}")
+
+                elif file_extension == "xliff":
+                    # Save as XLIFF XML
+                    for elem in root.iter():
+                        if elem.text:
+                            elem.text = translated_text  # Replace text with translated text
+                    xliff_buffer = BytesIO()
+                    tree.write(xliff_buffer, encoding="utf-8", xml_declaration=True)
+                    xliff_buffer.seek(0)
+                    st.download_button("Download Translated File", data=xliff_buffer, file_name=f"Translated_{filename}")
+
+                elif file_extension == "pdf":
+                    # **Exception:** Save as TXT instead of PDF
+                    st.download_button("Download Translated File (TXT format)", data=translated_text, file_name=f"Translated_{filename}.txt")
+
                 
             
                     
