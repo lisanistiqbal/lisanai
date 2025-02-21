@@ -12,6 +12,7 @@ click==8.1.8
 colorama==0.4.6
 decorator==5.1.1
 docstring_parser==0.16
+docx==0.2.4
 et_xmlfile==2.0.0
 ffmpeg==1.4
 gcloud==0.18.3
@@ -47,6 +48,7 @@ jsonschema-specifications==2024.10.1
 lazy_loader==0.4
 librosa==0.10.2.post1
 llvmlite==0.44.0
+lxml==5.3.1
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 mdurl==0.1.2
@@ -74,8 +76,10 @@ pydeck==0.9.1
 pydub==0.25.1
 Pygments==2.18.0
 pyparsing==3.2.0
+PyPDF2==3.0.1
 pyperclip==1.9.0
 python-dateutil==2.9.0.post0
+python-docx==1.1.2
 pytz==2024.2
 referencing==0.35.1
 requests==2.32.3
@@ -102,3 +106,4 @@ tzdata==2024.2
 uritemplate==4.1.1
 urllib3==2.3.0
 watchdog==6.0.0
+XlsxWriter==3.2.2
