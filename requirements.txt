@@ -2,9 +2,11 @@ altair==5.5.0
 annotated-types==0.7.0
 attrs==24.3.0
 audioread==3.0.1
+bcrypt==4.2.1
 beautifulsoup4==4.12.3
 blinker==1.9.0
 cachetools==5.5.0
+captcha==0.7.0
 certifi==2024.12.14
 cffi==1.17.1
 charset-normalizer==3.4.1
@@ -14,6 +16,7 @@ decorator==5.1.1
 docstring_parser==0.16
 docx==0.2.4
 et_xmlfile==2.0.0
+extra-streamlit-components==0.1.71
 ffmpeg==1.4
 gcloud==0.18.3
 gitdb==4.0.11
@@ -75,12 +78,14 @@ pydantic_core==2.27.2
 pydeck==0.9.1
 pydub==0.25.1
 Pygments==2.18.0
+PyJWT==2.10.1
 pyparsing==3.2.0
 PyPDF2==3.0.1
 pyperclip==1.9.0
 python-dateutil==2.9.0.post0
 python-docx==1.1.2
 pytz==2024.2
+PyYAML==6.0.2
 referencing==0.35.1
 requests==2.32.3
 rich==13.9.4
@@ -95,6 +100,7 @@ soundfile==0.13.1
 soupsieve==2.6
 soxr==0.5.0.post1
 streamlit==1.41.1
+streamlit-authenticator==0.2.1
 streamlit-lottie==0.0.5
 tenacity==9.0.0
 threadpoolctl==3.5.0
