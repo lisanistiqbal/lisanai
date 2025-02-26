@@ -17,662 +17,710 @@ import pyperclip
 import PyPDF2
 import docx
 import xml.etree.ElementTree as ET
+import pickle
+from pathlib import Path
+import streamlit_authenticator as stauth  
 
-generation_config = {
-    "candidate_count": 1,
-    "max_output_tokens": 8192,
-    "temperature": 0,
-    "top_p": 0.95,
-    "top_k": 1,
-}
-api_key = st.secrets["genai"]["api_key"]
+# --- USER AUTHENTICATION ---
+names = ["Asif Iqbal", "Sadullah Saad", "Faheem Ahmad"]
+usernames = ["asif", "saad", "fahmad"]
 
-genai.configure(api_key=api_key)
-safety_settings = [
-    SafetySetting(
-        category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-        threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
-    ),
-    SafetySetting(
-        category=SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-        threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
-    ),
-    SafetySetting(
-        category=SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-        threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
-    ),
-    SafetySetting(
-        category=SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
-        threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
-    ),
-]
-def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', instruction='0'):
-    # Initialize Vertex AI with project and location from secrets
-    service_account_info = st.secrets["gcp_service_account"]
-    credentials_path = os.path.abspath("service_account_key.json")
-    vertexai.init(
-        project = service_account_info["project_id"],
-        location = "us-central1",
-        credentials = credentials_path,
-    )
-    
-    model = GenerativeModel(
-        model_name=llm_model
-    )
+# Load the hashed passwords from the .pkl file
+with open("hashed_passwords.pkl", "rb") as file:
+    hashed_passwords = pickle.load(file)  # This should be a dictionary
 
-    # Generate content
-    responses = model.generate_content(
-        [f'You are an expert Translator. You are tasked to translate documents from {src} to {trg}. \
-         Please provide an accurate translation of this text which is from {domain} and return translation text only, considering the {tone} \
-         Instruction: {instruction} \
-         :{text}'],
-        generation_config=generation_config,
-        safety_settings=safety_settings,
-    )
-
-    return responses.candidates[0].content.parts[0].text
-
-def translate_text(text, src, trg, llm_model, tone, domain, instruction, mandatory_translations = 'None'):
-
-    # Stronger Prompt Template
-    prompt = f"""
-    You are an expert Translator create by Lisan India. Your task is to translate texts **from {src} to {trg}** accurately. 
-    The text belongs to the **{domain}** domain and should be translated in a **{tone}** tone.
-
-    ### **Important Instructions:**
-    1. **Strictly use the provided mandatory translations** if 1st word is from {src} language and other is in {trg} language.
-    2. **Do not modify** words that are replaced based on the dictionary.
-    3. **Ensure smooth, natural readability** while keeping accuracy.
-
-    ### **Mandatory Translations (Do not modify these words):**  
-    {mandatory_translations}
-
-    ### **Instruction:**  
-    {instruction}
-
-    ### **Text to Translate:**  
-    {text}
-
-    ### **Your Translation:**  
-    """
-    model = genai.GenerativeModel(llm_model)
-    response = model.generate_content(prompt)
-    
-    return response.text.strip()
-
-def get_transcript(audio_file, audio_language='unknown'): 
-    url = "https://api.sarvam.ai/speech-to-text"
-
-    files = {
-        "file": ('audio.wav', open(audio_file,'rb'), "audio/wav")  # Convert to WAV format
-    }
-
-    data = {
-        "language_code": audio_language,
-        "model": "saarika:v2",
-        "with_diarization": "true",
-        "with_timestamps": "true"
-    }
-
-    headers = {
-        "api-subscription-key": "5a73b765-cbce-43bd-8080-c7430ce4d961"  # Replace with your API key
-    }
-
-    response = requests.post(url, files=files, data=data, headers=headers)
-
-    return response
-
-
-def split_audio(audio_file, segment_length=149*60*100, output_dir="audio_segments"):
-    os.makedirs(output_dir, exist_ok=True)  # Create directory if not exists
-
-    audio = AudioSegment.from_file(audio_file)
-    total_duration = len(audio)  # Duration in milliseconds
-
-    if total_duration <= segment_length:
-        segment_path = os.path.join(output_dir, f"segment.wav")
-    else:
-        segments = []
-        for i, start in enumerate(range(0, total_duration, segment_length)):
-            end = min(start + segment_length, total_duration)
-            segment = audio[start:end]
-            
-            segment_path = os.path.join(output_dir, f"segment_{i}.wav")
-            segment.export(segment_path, format="wav")  # Save segment
-            segments.append(segment_path)
-
-    return output_dir
-
-def generate_NMT(strs_to_translate: List[str], src: str, tgt: str
-) -> translate.TranslationServiceClient:
-    """Translating Text."""
-
-    client = translate.TranslationServiceClient()
-
-    location = "us-central1"
-
-    parent = f"projects/lisanai/locations/{location}"
-
-    # Translate text from en to fr
-    response = client.translate_text(
-        request={
-            "parent": parent,
-            "contents": strs_to_translate,
-            "mime_type": "text/plain",  # mime types: text/plain, text/html
-            "source_language_code": src,
-            "target_language_code":  tgt,
+credentials = {
+    "usernames": {
+        username: {
+            "name": username.replace("_", " ").title(),  # Auto-format names
+            "password": hashed_passwords[username]  # Use the hashed password from the .pkl file
         }
-    )
-
-    return [text.translated_text for text in response.translations]  
-
-def load_lottiefile(filepath: str):
-        with open(filepath, "r") as f:
-            return json.load(f)
-
-
-def load_lottieurl(url: str):
-    r = requests.get(url)
-    if r.status_code != 200:
-        return None
-    return r.json()
-c1, c2, c3 = st.columns([2,5,1], vertical_alignment="center")
-lottie_hello = load_lottieurl("https://lottie.host/057e0efe-27c7-4397-840c-f1f25b8a682a/6Dw9TLkyW5.json")
-with c2:
-    st_lottie(
-        lottie_hello,
-        speed=1,
-        reverse=False,
-        loop=True,
-        quality="low", # medium ; high
-        #renderer="svg", # canvas
-        height=300,
-        width=300,
-        key=None,
-
-    )
-a1, a2, a3 = st.columns([1,3,1], vertical_alignment="center")
-with a2:
-    #st.title("Your AI for your Documents")
-    st.markdown("<h1 style='text-align: center;'>Lisan AI</h1>", unsafe_allow_html=True)
-
-audio_on = st.toggle("Audio")
-
-if audio_on:
-    audio_file = st.file_uploader("Upload an audio file", type=["mp3", "wav", "wave", "x-wav", "mpeg"])
-
-    audio_language_dict = {
-        "Unknown": "unknown",
-        "Hindi": "hi-IN",
-        "Bengali": "bn-IN",
-        "Kannada": "kn-IN",
-        "Malayalam": "ml-IN",
-        "Marathi": "mr-IN",
-        "Odia": "od-IN",
-        "Punjabi": "pa-IN",
-        "Tamil": "ta-IN",
-        "Telugu": "te-IN",
-        "English (India)": "en-IN",
-        "Gujarati": "gu-IN"
+        for username in hashed_passwords
     }
+}
 
-    language_opts = tuple(audio_language_dict.keys())
-    audio_language =st.selectbox(
-            "Select the input Audio Language",
-            language_opts,
-            index=0
-        )
-    
-    if st.button("Get Transcript"):                    
-        if audio_file is not None:
-            st.audio(audio_file, format="audio/wav")
+# load hashed passwords
 
-            # Convert Streamlit file to BytesIO
-            audio_bytes = BytesIO(audio_file.read())
+authenticator = stauth.Authenticate(
+    credentials, 
+    cookie_name="some_cookie_name",
+    key="some_secret_key",
+    cookie_expiry_days=30
+)
 
-            # Split the audio into segments
-            output_dir = split_audio(audio_bytes)
-            responses = []
-            start_time, end_time, speaker_id, transcript =[], [], [], []
-            for audio in output_dir:
-                response = get_transcript(audio, audio_language_dict[audio_language])
-                
-                for i in eval(response.text)['diarized_transcript']['entries']:
-                        start_time.append(i['start_time_seconds'])
-                        end_time.append(i['end_time_seconds'])
-                        speaker_id.append(i['speaker_id'])
-                        transcript.append(i['transcript'])
-            data = {
-                    "Start Time": start_time,
-                    "End Time": end_time,
-                    "Speaker IDs": speaker_id,
-                    "Transcripts": transcript
-                }
-            df = pd.DataFrame(data)
-            df.to_excel('Transcript.xlsx', index=True)
-            with open('Transcript.xlsx', "rb") as template_file:
-                template_byte = template_file.read()
 
-            st.download_button(label="Download Transcript",
-                                data=template_byte,
-                                file_name="Transcript.xlsx",
-                                mime='application/octet-stream')
-    
-else:
-    b1, b2 = st.columns([1,1], vertical_alignment="center")
-    languages = {
-        "Abkhaz": "ab",
-        "Acehnese": "ace",
-        "Acholi": "ach",
-        "Afrikaans": "af",
-        "Albanian": "sq",
-        "Alur": "alz",
-        "Amharic": "am",
-        "Arabic": "ar",
-        "Armenian": "hy",
-        "Assamese": "as",
-        "Awadhi": "awa",
-        "Aymara": "ay",
-        "Azerbaijani": "az",
-        "Balinese": "ban",
-        "Bambara": "bm",
-        "Bashkir": "ba",
-        "Basque": "eu",
-        "Batak Karo": "btx",
-        "Batak Simalungun": "bts",
-        "Batak Toba": "bbc",
-        "Belarusian": "be",
-        "Bemba": "bem",
-        "Bengali": "bn",
-        "Betawi": "bew",
-        "Bhojpuri": "bho",
-        "Bikol": "bik",
-        "Bosnian": "bs",
-        "Breton": "br",
-        "Bulgarian": "bg",
-        "Buryat": "bua",
-        "Cantonese": "yue",
-        "Catalan": "ca",
-        "Cebuano": "ceb",
-        "Chichewa (Nyanja)": "ny",
-        "Chinese (Simplified)": "zh-CN or zh (BCP-47)",
-        "Chinese (Traditional)": "zh-TW (BCP-47)",
-        "Chuvash": "cv",
-        "Corsican": "co",
-        "Crimean Tatar": "crh",
-        "Croatian": "hr",
-        "Czech": "cs",
-        "Danish": "da",
-        "Dinka": "din",
-        "Divehi": "dv",
-        "Dogri": "doi",
-        "Dombe": "dov",
-        "Dutch": "nl",
-        "Dzongkha": "dz",
-        "English": "en",
-        "Esperanto": "eo",
-        "Estonian": "et",
-        "Ewe": "ee",
-        "Fijian": "fj",
-        "Filipino (Tagalog)": "fil or tl",
-        "Finnish": "fi",
-        "French": "fr",
-        "French (French)": "fr-FR",
-        "French (Canadian)": "fr-CA",
-        "Frisian": "fy",
-        "Fulfulde": "ff",
-        "Ga": "gaa",
-        "Galician": "gl",
-        "Ganda (Luganda)": "lg",
-        "Georgian": "ka",
-        "German": "de",
-        "Greek": "el",
-        "Guarani": "gn",
-        "Gujarati": "gu",
-        "Haitian Creole": "ht",
-        "Hakha Chin": "cnh",
-        "Hausa": "ha",
-        "Hawaiian": "haw",
-        "Hebrew": "iw or he",
-        "Hiligaynon": "hil",
-        "Hindi": "hi",
-        "Hmong": "hmn",
-        "Hungarian": "hu",
-        "Hunsrik": "hrx",
-        "Icelandic": "is",
-        "Igbo": "ig",
-        "Iloko": "ilo",
-        "Indonesian": "id",
-        "Irish": "ga",
-        "Italian": "it",
-        "Japanese": "ja",
-        "Javanese": "jw or jv",
-        "Kannada": "kn",
-        "Kapampangan": "pam",
-        "Kazakh": "kk",
-        "Khmer": "km",
-        "Kiga": "cgg",
-        "Kinyarwanda": "rw",
-        "Kituba": "ktu",
-        "Konkani": "gom",
-        "Korean": "ko",
-        "Krio": "kri",
-        "Kurdish (Kurmanji)": "ku",
-        "Kurdish (Sorani)": "ckb",
-        "Kyrgyz": "ky",
-        "Lao": "lo",
-        "Latgalian": "ltg",
-        "Latin": "la",
-        "Latvian": "lv",
-        "Ligurian": "lij",
-        "Limburgan": "li",
-        "Lingala": "ln",
-        "Lithuanian": "lt",
-        "Lombard": "lmo",
-        "Luo": "luo",
-        "Luxembourgish": "lb",
-        "Macedonian": "mk",
-        "Maithili": "mai",
-        "Makassar": "mak",
-        "Malagasy": "mg",
-        "Malay": "ms",
-        "Malay (Jawi)": "ms-Arab",
-        "Malayalam": "ml",
-        "Maltese": "mt",
-        "Maori": "mi",
-        "Marathi": "mr",
-        "Meadow Mari": "chm",
-        "Meiteilon (Manipuri)": "mni-Mtei",
-        "Minang": "min",
-        "Mizo": "lus",
-        "Mongolian": "mn",
-        "Myanmar (Burmese)": "my",
-        "Ndebele (South)": "nr",
-        "Nepalbhasa (Newari)": "new",
-        "Nepali": "ne",
-        "Northern Sotho (Sepedi)": "nso",
-        "Norwegian": "no",
-        "Nuer": "nus",
-        "Occitan": "oc",
-        "Odia (Oriya)": "or",
-        "Oromo": "om",
-        "Pangasinan": "pag",
-        "Papiamento": "pap",
-        "Pashto": "ps",
-        "Persian": "fa",
-        "Polish": "pl",
-        "Portuguese": "pt",
-        "Portuguese (Portugal)": "pt-PT",
-        "Portuguese (Brazil)": "pt-BR",
-        "Punjabi": "pa",
-        "Punjabi (Shahmukhi)": "pa-Arab",
-        "Quechua": "qu",
-        "Romani": "rom",
-        "Romanian": "ro",
-        "Rundi": "rn",
-        "Russian": "ru",
-        "Samoan": "sm",
-        "Sango": "sg",
-        "Sanskrit": "sa",
-        "Scots Gaelic": "gd",
-        "Serbian": "sr",
-        "Sesotho": "st",
-        "Seychellois Creole": "crs",
-        "Shan": "shn",
-        "Shona": "sn",
-        "Sicilian": "scn",
-        "Silesian": "szl",
-        "Sindhi": "sd",
-        "Sinhala (Sinhalese)": "si",
-        "Slovak": "sk",
-        "Slovenian": "sl",
-        "Somali": "so",
-        "Spanish": "es",
-        "Sundanese": "su",
-        "Swahili": "sw",
-        "Swati": "ss",
-        "Swedish": "sv",
-        "Tajik": "tg",
-        "Tamil": "ta",
-        "Tatar": "tt",
-        "Telugu": "te",
-        "Tetum": "tet",
-        "Thai": "th",
-        "Tigrinya": "ti",
-        "Tsonga": "ts",
-        "Tswana": "tn",
-        "Turkish": "tr",
-        "Turkmen": "tk",
-        "Twi (Akan)": "ak",
-        "Ukrainian": "uk",
-        "Urdu": "ur",
-        "Uyghur": "ug",
-        "Uzbek": "uz",
-        "Vietnamese": "vi",
-        "Welsh": "cy",
-        "Xhosa": "xh",
-        "Yiddish": "yi",
-        "Yoruba": "yo",
-        "Yucatec Maya": "yua",
-        "Zulu": "zu"
+name, authentication_status, username = authenticator.login("Login", "main")
+
+if authentication_status == False:
+    st.error("Username/password is incorrect")
+
+if authentication_status == None:
+    st.warning("Please enter your username and password")
+
+if authentication_status:
+    q1, q2 = st.columns([7,1], vertical_alignment="center")
+    with q2:
+        # Logout button
+        if st.button("Log Out", key="logout_button"):
+            authenticator.logout("Log Out")
+            authentication_status = None  # Reset auth state
+            st.rerun()  # Force redirect to login page
+    generation_config = {
+        "candidate_count": 1,
+        "max_output_tokens": 8192,
+        "temperature": 0,
+        "top_p": 0.95,
+        "top_k": 1,
     }
-    keys_lang = tuple(languages.keys())
+    #api_key = st.secrets["genai"]["api_key"]
 
-
-    llm_model =st.selectbox(
-            "Model Selection",
-            ("gemini-2.0-flash", "gemini-1.5-flash-002", "gemini-1.5-pro-002"),
-            index=0
+    genai.configure(api_key="AIzaSyCeKd7FcGWZs0wWDXTQZtHPR87kJL0Cehk")
+    safety_settings = [
+        SafetySetting(
+            category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+        ),
+        SafetySetting(
+            category=SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+        ),
+        SafetySetting(
+            category=SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+        ),
+        SafetySetting(
+            category=SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+        ),
+    ]
+    def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', instruction='0'):
+        # Initialize Vertex AI with project and location from secrets
+        service_account_info = st.secrets["gcp_service_account"]
+        credentials_path = os.path.abspath("service_account_key.json")
+        vertexai.init(
+            project = service_account_info["project_id"],
+            location = "us-central1",
+            credentials = credentials_path,
         )
-    # Layout with columns
-    # "gemini-1.5-flash-001", "gemini-1.5-pro-001", "gemini-1.0-pro-001"
-    b1, b2, b3 = st.columns([1, 0.5, 1])
-
-    with b1:
-        source = st.selectbox(
-            "Source Language",
-            keys_lang,
-            index=48,
-            key="source_lang"
+        
+        model = GenerativeModel(
+            model_name=llm_model
         )
-    with b3:
-        target = st.selectbox(
-            "Target Language",
-            keys_lang,
-            index=7,
-            key="target_lang"
+
+        # Generate content
+        responses = model.generate_content(
+            [f'You are an expert Translator. You are tasked to translate documents from {src} to {trg}. \
+            Please provide an accurate translation of this text which is from {domain} and return translation text only, considering the {tone} \
+            Instruction: {instruction} \
+            :{text}'],
+            generation_config=generation_config,
+            safety_settings=safety_settings,
         )
-    x1, x2= st.columns([1, 1])
 
-    with x1:
-        tone = st.selectbox(
-            "Translation Tone",
-            ('Normal', 'Formal', 'Infomal'),
-            index=0,
-            key="lang_tone"
-        )
-    with x2:
-        domain = st.selectbox(
-            "Translation Domain",
-            ('General', 'Financial', 'Educational', 'Healthcare', 'Technology', 'Business'),
-            index=0,
-            key="lang_domain"
-        )
-    
-    instruction = st.text_area("Translation Instruction", 'None', height=250)
+        return responses.candidates[0].content.parts[0].text
 
-    uploaded_file = st.file_uploader("Upload your mandatory translations (Excel file)", type=["xlsx"])
+    def translate_text(text, src, trg, llm_model, tone, domain, instruction, mandatory_translations = 'None'):
 
-    if uploaded_file is not None:
-        df = pd.read_excel(uploaded_file, header=None)  # Read without headers
+        # Stronger Prompt Template
+        prompt = f"""
+        You are an expert Translator create by Lisan India. Your task is to translate texts **from {src} to {trg}** accurately. 
+        The text belongs to the **{domain}** domain and should be translated in a **{tone}** tone.
 
-        # Display first few rows for reference
-        #st.write("Preview of Uploaded File:", df.head())
+        ### **Important Instructions:**
+        1. **Strictly use the provided mandatory translations** if 1st word is from {src} language and other is in {trg} language.
+        2. **Do not modify** words that are replaced based on the dictionary.
+        3. **Ensure smooth, natural readability** while keeping accuracy.
 
-        if len(df.columns) >= 2:
-            # Let user select columns based on position
-            word_col = 0 #st.number_input("Select column index for 'Words' (starting from 0)", min_value=0, max_value=len(df.columns)-1, value=0, step=1)
-            translation_col = 1 #st.number_input("Select column index for 'Translations' (starting from 0)", min_value=0, max_value=len(df.columns)-1, value=1, step=1)
+        ### **Mandatory Translations (Do not modify these words):**  
+        {mandatory_translations}
 
-            # Extract selected columns
-            df_selected = df.iloc[:, [word_col, translation_col]]
-            df_selected.columns = ["word", "translation"]  # Rename for consistency
-            
-            st.write("Preview of Uploaded File:", df_selected.head())
-            mandatory_translations = "\n".join([f"- {row['word']} → {row['translation']}" for _, row in df_selected.iterrows()])
-    
+        ### **Instruction:**  
+        {instruction}
+
+        ### **Text to Translate:**  
+        {text}
+
+        ### **Your Translation:**  
+        """
+        model = genai.GenerativeModel(llm_model)
+        response = model.generate_content(prompt)
+        
+        return response.text.strip()
+
+    def get_transcript(audio_file, audio_language='unknown'): 
+        url = "https://api.sarvam.ai/speech-to-text"
+
+        files = {
+            "file": ('audio.wav', open(audio_file,'rb'), "audio/wav")  # Convert to WAV format
+        }
+
+        data = {
+            "language_code": audio_language,
+            "model": "saarika:v2",
+            "with_diarization": "true",
+            "with_timestamps": "true"
+        }
+
+        headers = {
+            "api-subscription-key": "5a73b765-cbce-43bd-8080-c7430ce4d961"  # Replace with your API key
+        }
+
+        response = requests.post(url, files=files, data=data, headers=headers)
+
+        return response
+
+
+    def split_audio(audio_file, segment_length=149*60*100, output_dir="audio_segments"):
+        os.makedirs(output_dir, exist_ok=True)  # Create directory if not exists
+
+        audio = AudioSegment.from_file(audio_file)
+        total_duration = len(audio)  # Duration in milliseconds
+
+        if total_duration <= segment_length:
+            segment_path = os.path.join(output_dir, f"segment.wav")
         else:
-            mandatory_translations = 'None'
+            segments = []
+            for i, start in enumerate(range(0, total_duration, segment_length)):
+                end = min(start + segment_length, total_duration)
+                segment = audio[start:end]
+                
+                segment_path = os.path.join(output_dir, f"segment_{i}.wav")
+                segment.export(segment_path, format="wav")  # Save segment
+                segments.append(segment_path)
 
+        return output_dir
+
+    def generate_NMT(strs_to_translate: List[str], src: str, tgt: str
+    ) -> translate.TranslationServiceClient:
+        """Translating Text."""
+
+        client = translate.TranslationServiceClient()
+
+        location = "us-central1"
+
+        parent = f"projects/lisanai/locations/{location}"
+
+        # Translate text from en to fr
+        response = client.translate_text(
+            request={
+                "parent": parent,
+                "contents": strs_to_translate,
+                "mime_type": "text/plain",  # mime types: text/plain, text/html
+                "source_language_code": src,
+                "target_language_code":  tgt,
+            }
+        )
+
+        return [text.translated_text for text in response.translations]  
+
+    def load_lottiefile(filepath: str):
+            with open(filepath, "r") as f:
+                return json.load(f)
+
+
+    def load_lottieurl(url: str):
+        r = requests.get(url)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    c1, c2, c3 = st.columns([2,5,1], vertical_alignment="center")
+    lottie_hello = load_lottieurl("https://lottie.host/057e0efe-27c7-4397-840c-f1f25b8a682a/6Dw9TLkyW5.json")
+    with c2:
+        st_lottie(
+            lottie_hello,
+            speed=1,
+            reverse=False,
+            loop=True,
+            quality="low", # medium ; high
+            #renderer="svg", # canvas
+            height=300,
+            width=300,
+            key=None,
+
+        )
+    a1, a2, a3 = st.columns([1,3,1], vertical_alignment="center")
+    with a2:
+        #st.title("Your AI for your Documents")
+        #st.markdown("<h3 style='text-align: center;'>Hello{name}</h3>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>Lisan AI</h1>", unsafe_allow_html=True)
+
+    audio_on = st.toggle("Audio")
+
+    if audio_on:
+        audio_file = st.file_uploader("Upload an audio file", type=["mp3", "wav", "wave", "x-wav", "mpeg"])
+
+        audio_language_dict = {
+            "Unknown": "unknown",
+            "Hindi": "hi-IN",
+            "Bengali": "bn-IN",
+            "Kannada": "kn-IN",
+            "Malayalam": "ml-IN",
+            "Marathi": "mr-IN",
+            "Odia": "od-IN",
+            "Punjabi": "pa-IN",
+            "Tamil": "ta-IN",
+            "Telugu": "te-IN",
+            "English (India)": "en-IN",
+            "Gujarati": "gu-IN"
+        }
+
+        language_opts = tuple(audio_language_dict.keys())
+        audio_language =st.selectbox(
+                "Select the input Audio Language",
+                language_opts,
+                index=0
+            )
+        
+        if st.button("Get Transcript"):                    
+            if audio_file is not None:
+                st.audio(audio_file, format="audio/wav")
+
+                # Convert Streamlit file to BytesIO
+                audio_bytes = BytesIO(audio_file.read())
+
+                # Split the audio into segments
+                output_dir = split_audio(audio_bytes)
+                responses = []
+                start_time, end_time, speaker_id, transcript =[], [], [], []
+                for audio in output_dir:
+                    response = get_transcript(audio, audio_language_dict[audio_language])
+                    
+                    for i in eval(response.text)['diarized_transcript']['entries']:
+                            start_time.append(i['start_time_seconds'])
+                            end_time.append(i['end_time_seconds'])
+                            speaker_id.append(i['speaker_id'])
+                            transcript.append(i['transcript'])
+                data = {
+                        "Start Time": start_time,
+                        "End Time": end_time,
+                        "Speaker IDs": speaker_id,
+                        "Transcripts": transcript
+                    }
+                df = pd.DataFrame(data)
+                df.to_excel('Transcript.xlsx', index=True)
+                with open('Transcript.xlsx', "rb") as template_file:
+                    template_byte = template_file.read()
+
+                st.download_button(label="Download Transcript",
+                                    data=template_byte,
+                                    file_name="Transcript.xlsx",
+                                    mime='application/octet-stream')
+        
     else:
-        mandatory_translations = 'None'
-    
-    on = st.toggle("Text File")
+        b1, b2 = st.columns([1,1], vertical_alignment="center")
+        languages = {
+            "Abkhaz": "ab",
+            "Acehnese": "ace",
+            "Acholi": "ach",
+            "Afrikaans": "af",
+            "Albanian": "sq",
+            "Alur": "alz",
+            "Amharic": "am",
+            "Arabic": "ar",
+            "Armenian": "hy",
+            "Assamese": "as",
+            "Awadhi": "awa",
+            "Aymara": "ay",
+            "Azerbaijani": "az",
+            "Balinese": "ban",
+            "Bambara": "bm",
+            "Bashkir": "ba",
+            "Basque": "eu",
+            "Batak Karo": "btx",
+            "Batak Simalungun": "bts",
+            "Batak Toba": "bbc",
+            "Belarusian": "be",
+            "Bemba": "bem",
+            "Bengali": "bn",
+            "Betawi": "bew",
+            "Bhojpuri": "bho",
+            "Bikol": "bik",
+            "Bosnian": "bs",
+            "Breton": "br",
+            "Bulgarian": "bg",
+            "Buryat": "bua",
+            "Cantonese": "yue",
+            "Catalan": "ca",
+            "Cebuano": "ceb",
+            "Chichewa (Nyanja)": "ny",
+            "Chinese (Simplified)": "zh-CN or zh (BCP-47)",
+            "Chinese (Traditional)": "zh-TW (BCP-47)",
+            "Chuvash": "cv",
+            "Corsican": "co",
+            "Crimean Tatar": "crh",
+            "Croatian": "hr",
+            "Czech": "cs",
+            "Danish": "da",
+            "Dinka": "din",
+            "Divehi": "dv",
+            "Dogri": "doi",
+            "Dombe": "dov",
+            "Dutch": "nl",
+            "Dzongkha": "dz",
+            "English": "en",
+            "Esperanto": "eo",
+            "Estonian": "et",
+            "Ewe": "ee",
+            "Fijian": "fj",
+            "Filipino (Tagalog)": "fil or tl",
+            "Finnish": "fi",
+            "French": "fr",
+            "French (French)": "fr-FR",
+            "French (Canadian)": "fr-CA",
+            "Frisian": "fy",
+            "Fulfulde": "ff",
+            "Ga": "gaa",
+            "Galician": "gl",
+            "Ganda (Luganda)": "lg",
+            "Georgian": "ka",
+            "German": "de",
+            "Greek": "el",
+            "Guarani": "gn",
+            "Gujarati": "gu",
+            "Haitian Creole": "ht",
+            "Hakha Chin": "cnh",
+            "Hausa": "ha",
+            "Hawaiian": "haw",
+            "Hebrew": "iw or he",
+            "Hiligaynon": "hil",
+            "Hindi": "hi",
+            "Hmong": "hmn",
+            "Hungarian": "hu",
+            "Hunsrik": "hrx",
+            "Icelandic": "is",
+            "Igbo": "ig",
+            "Iloko": "ilo",
+            "Indonesian": "id",
+            "Irish": "ga",
+            "Italian": "it",
+            "Japanese": "ja",
+            "Javanese": "jw or jv",
+            "Kannada": "kn",
+            "Kapampangan": "pam",
+            "Kazakh": "kk",
+            "Khmer": "km",
+            "Kiga": "cgg",
+            "Kinyarwanda": "rw",
+            "Kituba": "ktu",
+            "Konkani": "gom",
+            "Korean": "ko",
+            "Krio": "kri",
+            "Kurdish (Kurmanji)": "ku",
+            "Kurdish (Sorani)": "ckb",
+            "Kyrgyz": "ky",
+            "Lao": "lo",
+            "Latgalian": "ltg",
+            "Latin": "la",
+            "Latvian": "lv",
+            "Ligurian": "lij",
+            "Limburgan": "li",
+            "Lingala": "ln",
+            "Lithuanian": "lt",
+            "Lombard": "lmo",
+            "Luo": "luo",
+            "Luxembourgish": "lb",
+            "Macedonian": "mk",
+            "Maithili": "mai",
+            "Makassar": "mak",
+            "Malagasy": "mg",
+            "Malay": "ms",
+            "Malay (Jawi)": "ms-Arab",
+            "Malayalam": "ml",
+            "Maltese": "mt",
+            "Maori": "mi",
+            "Marathi": "mr",
+            "Meadow Mari": "chm",
+            "Meiteilon (Manipuri)": "mni-Mtei",
+            "Minang": "min",
+            "Mizo": "lus",
+            "Mongolian": "mn",
+            "Myanmar (Burmese)": "my",
+            "Ndebele (South)": "nr",
+            "Nepalbhasa (Newari)": "new",
+            "Nepali": "ne",
+            "Northern Sotho (Sepedi)": "nso",
+            "Norwegian": "no",
+            "Nuer": "nus",
+            "Occitan": "oc",
+            "Odia (Oriya)": "or",
+            "Oromo": "om",
+            "Pangasinan": "pag",
+            "Papiamento": "pap",
+            "Pashto": "ps",
+            "Persian": "fa",
+            "Polish": "pl",
+            "Portuguese": "pt",
+            "Portuguese (Portugal)": "pt-PT",
+            "Portuguese (Brazil)": "pt-BR",
+            "Punjabi": "pa",
+            "Punjabi (Shahmukhi)": "pa-Arab",
+            "Quechua": "qu",
+            "Romani": "rom",
+            "Romanian": "ro",
+            "Rundi": "rn",
+            "Russian": "ru",
+            "Samoan": "sm",
+            "Sango": "sg",
+            "Sanskrit": "sa",
+            "Scots Gaelic": "gd",
+            "Serbian": "sr",
+            "Sesotho": "st",
+            "Seychellois Creole": "crs",
+            "Shan": "shn",
+            "Shona": "sn",
+            "Sicilian": "scn",
+            "Silesian": "szl",
+            "Sindhi": "sd",
+            "Sinhala (Sinhalese)": "si",
+            "Slovak": "sk",
+            "Slovenian": "sl",
+            "Somali": "so",
+            "Spanish": "es",
+            "Sundanese": "su",
+            "Swahili": "sw",
+            "Swati": "ss",
+            "Swedish": "sv",
+            "Tajik": "tg",
+            "Tamil": "ta",
+            "Tatar": "tt",
+            "Telugu": "te",
+            "Tetum": "tet",
+            "Thai": "th",
+            "Tigrinya": "ti",
+            "Tsonga": "ts",
+            "Tswana": "tn",
+            "Turkish": "tr",
+            "Turkmen": "tk",
+            "Twi (Akan)": "ak",
+            "Ukrainian": "uk",
+            "Urdu": "ur",
+            "Uyghur": "ug",
+            "Uzbek": "uz",
+            "Vietnamese": "vi",
+            "Welsh": "cy",
+            "Xhosa": "xh",
+            "Yiddish": "yi",
+            "Yoruba": "yo",
+            "Yucatec Maya": "yua",
+            "Zulu": "zu"
+        }
+        keys_lang = tuple(languages.keys())
 
-    if on:
-        uploaded_file = st.file_uploader("Upload a file", type=["txt", "xlsx","csv", "pdf", "docx", "xliff"])
+
+        llm_model =st.selectbox(
+                "Model Selection",
+                ("gemini-2.0-flash", "gemini-1.5-flash-002", "gemini-1.5-pro-002"),
+                index=0
+            )
+        # Layout with columns
+        # "gemini-1.5-flash-001", "gemini-1.5-pro-001", "gemini-1.0-pro-001"
+        b1, b2, b3 = st.columns([1, 0.5, 1])
+
+        with b1:
+            source = st.selectbox(
+                "Source Language",
+                keys_lang,
+                index=48,
+                key="source_lang"
+            )
+        with b3:
+            target = st.selectbox(
+                "Target Language",
+                keys_lang,
+                index=7,
+                key="target_lang"
+            )
+        x1, x2= st.columns([1, 1])
+
+        with x1:
+            tone = st.selectbox(
+                "Translation Tone",
+                ('Normal', 'Formal', 'Infomal'),
+                index=0,
+                key="lang_tone"
+            )
+        with x2:
+            domain = st.selectbox(
+                "Translation Domain",
+                ('General', 'Financial', 'Educational', 'Healthcare', 'Technology', 'Business'),
+                index=0,
+                key="lang_domain"
+            )
+        
+        instruction = st.text_area("Translation Instruction", 'None', height=250)
+
+        uploaded_file = st.file_uploader("Upload your mandatory translations (Excel file)", type=["xlsx"])
 
         if uploaded_file is not None:
-            filename = uploaded_file.name
-            file_extension = filename.split(".")[-1]
+            df = pd.read_excel(uploaded_file, header=None)  # Read without headers
 
-            if file_extension in ["txt", "csv"]:
-                # Read text or CSV file
-                stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
-                text = stringio.read()
-                st.write("Extracted Text:", text)
-            
-            elif file_extension == "xlsx":
-                df = pd.read_excel(uploaded_file, sheet_name=None)  # Load all sheets
-                text_data = []
-                for sheet_name, sheet in df.items():
-                    #text_data.append(f"Sheet: {sheet_name}")
-                    text_data.append(sheet.to_string(index=False))
-                text = "\n".join(text_data)
-                st.write("Extracted Text:", text)
+            # Display first few rows for reference
+            #st.write("Preview of Uploaded File:", df.head())
 
-            elif file_extension == "pdf":
-                # Read PDF file
-                pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                text = "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
-                st.write("Extracted Text:", text)
+            if len(df.columns) >= 2:
+                # Let user select columns based on position
+                word_col = 0 #st.number_input("Select column index for 'Words' (starting from 0)", min_value=0, max_value=len(df.columns)-1, value=0, step=1)
+                translation_col = 1 #st.number_input("Select column index for 'Translations' (starting from 0)", min_value=0, max_value=len(df.columns)-1, value=1, step=1)
 
-            elif file_extension == "docx":
-                # Read DOCX file
-                doc = docx.Document(uploaded_file)
-                text = "\n".join([para.text for para in doc.paragraphs])
-                st.write("Extracted Text:", text)
-
-            elif file_extension == "xliff":
-                # Read XLIFF (XML) file
-                tree = ET.parse(uploaded_file)
-                root = tree.getroot()
-                text_elements = [elem.text for elem in root.iter() if elem.text]
-                text = "\n".join(text_elements)
-                st.write("Extracted Text:", text)
-
+                # Extract selected columns
+                df_selected = df.iloc[:, [word_col, translation_col]]
+                df_selected.columns = ["word", "translation"]  # Rename for consistency
+                
+                st.write("Preview of Uploaded File:", df_selected.head())
+                mandatory_translations = "\n".join([f"- {row['word']} → {row['translation']}" for _, row in df_selected.iterrows()])
+        
             else:
-                st.error("Unsupported file format")
-            if st.button("Translate"):
-                if llm_model == "NMT":
-                    contents = [text]
-                    translated_data = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
-                    
-                else:
-                    translated_text = translate_text(text, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)
-                    st.write(translated_text)
+                mandatory_translations = 'None'
+
+        else:
+            mandatory_translations = 'None'
+        
+        on = st.toggle("Text File")
+
+        if on:
+            uploaded_file = st.file_uploader("Upload a file", type=["txt", "xlsx","csv", "pdf", "docx", "xliff"])
+
+            if uploaded_file is not None:
+                filename = uploaded_file.name
+                file_extension = filename.split(".")[-1]
+
                 if file_extension in ["txt", "csv"]:
-                    # Save as text file
-                    st.download_button("Download Translated File", data=translated_text, file_name=f"Translated_{filename}")
+                    # Read text or CSV file
+                    stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
+                    text = stringio.read()
+                    st.write("Extracted Text:", text)
+                
                 elif file_extension == "xlsx":
-                    df = pd.DataFrame([translated_text.split("\n")])  # Convert text to DataFrame
-                    xlsx_buffer = BytesIO()
-                    with pd.ExcelWriter(xlsx_buffer, engine="xlsxwriter") as writer:
-                        df.to_excel(writer, sheet_name="Translated", index=False)
-                    xlsx_buffer.seek(0)
-                    st.download_button("Download Translated File", data=xlsx_buffer, file_name=f"Translated_{filename}")
-
-                elif file_extension == "docx":
-                    # Save as DOCX file
-                    translated_doc = docx.Document()
-                    translated_doc.add_paragraph(translated_text)
-                    docx_buffer = BytesIO()
-                    translated_doc.save(docx_buffer)
-                    docx_buffer.seek(0)
-                    st.download_button("Download Translated File", data=docx_buffer, file_name=f"Translated_{filename}")
-
-                elif file_extension == "xliff":
-                    # Save as XLIFF XML
-                    for elem in root.iter():
-                        if elem.text:
-                            elem.text = translated_text  # Replace text with translated text
-                    xliff_buffer = BytesIO()
-                    tree.write(xliff_buffer, encoding="utf-8", xml_declaration=True)
-                    xliff_buffer.seek(0)
-                    st.download_button("Download Translated File", data=xliff_buffer, file_name=f"Translated_{filename}")
+                    df = pd.read_excel(uploaded_file, sheet_name=None)  # Load all sheets
+                    text_data = []
+                    for sheet_name, sheet in df.items():
+                        #text_data.append(f"Sheet: {sheet_name}")
+                        text_data.append(sheet.to_string(index=False))
+                    text = "\n".join(text_data)
+                    st.write("Extracted Text:", text)
 
                 elif file_extension == "pdf":
-                    # **Exception:** Save as TXT instead of PDF
-                    st.download_button("Download Translated File (TXT format)", data=translated_text, file_name=f"Translated_{filename}.txt")
+                    # Read PDF file
+                    pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                    text = "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
+                    st.write("Extracted Text:", text)
 
-                
-            
-                    
-            # Can be used wherever a "file-like" object is accepted:
-            #dataframe = pd.read_csv(uploaded_file)
-            #st.write(dataframe)
-            
-    else:
+                elif file_extension == "docx":
+                    # Read DOCX file
+                    doc = docx.Document(uploaded_file)
+                    text = "\n".join([para.text for para in doc.paragraphs])
+                    st.write("Extracted Text:", text)
 
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
+                elif file_extension == "xliff":
+                    # Read XLIFF (XML) file
+                    tree = ET.parse(uploaded_file)
+                    root = tree.getroot()
+                    text_elements = [elem.text for elem in root.iter() if elem.text]
+                    text = "\n".join(text_elements)
+                    st.write("Extracted Text:", text)
 
-
-        res = [' ']
-        # Chat input box
-        prompt = st.chat_input("Type a text you want to translate")
-        if prompt:
-            # Save user input to history
-            st.session_state.messages.append({"role": "user", "content": prompt})
-
-            # Display status while processing
-            with st.status("Translating...", expanded=True) as status:
-                # Simulated delay to mimic processing (replace with actual call)
-                #time.sleep(2)  # Replace with the time your `generate` function takes
-                if llm_model == "NMT":
-                    contents = [prompt]
-                    response = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
                 else:
-                    response = f"{translate_text(prompt, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)}"    # Replace with your `generate` function
-                    res.append(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
-                status.update(label="Translated", state="complete", expanded=True)
+                    st.error("Unsupported file format")
+                if st.button("Translate"):
+                    if llm_model == "NMT":
+                        contents = [text]
+                        translated_data = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
+                        
+                    else:
+                        translated_text = translate_text(text, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)
+                        st.write(translated_text)
+                    if file_extension in ["txt", "csv"]:
+                        # Save as text file
+                        st.download_button("Download Translated File", data=translated_text, file_name=f"Translated_{filename}")
+                    elif file_extension == "xlsx":
+                        df = pd.DataFrame([translated_text.split("\n")])  # Convert text to DataFrame
+                        xlsx_buffer = BytesIO()
+                        with pd.ExcelWriter(xlsx_buffer, engine="xlsxwriter") as writer:
+                            df.to_excel(writer, sheet_name="Translated", index=False)
+                        xlsx_buffer.seek(0)
+                        st.download_button("Download Translated File", data=xlsx_buffer, file_name=f"Translated_{filename}")
 
-        
-        for message in st.session_state.messages:
-            if message["role"] == "user":
-                st.chat_message("user").write(message["content"])
-            else:
-                st.chat_message("assistant").write(message["content"], key="copy_area")
-        
-        
-        c1, c3 = st.columns([0.1, 0.4])
-        with c1:
-            if st.button("🗑️ Clear Chat"):
+                    elif file_extension == "docx":
+                        # Save as DOCX file
+                        translated_doc = docx.Document()
+                        translated_doc.add_paragraph(translated_text)
+                        docx_buffer = BytesIO()
+                        translated_doc.save(docx_buffer)
+                        docx_buffer.seek(0)
+                        st.download_button("Download Translated File", data=docx_buffer, file_name=f"Translated_{filename}")
+
+                    elif file_extension == "xliff":
+                        # Save as XLIFF XML
+                        for elem in root.iter():
+                            if elem.text:
+                                elem.text = translated_text  # Replace text with translated text
+                        xliff_buffer = BytesIO()
+                        tree.write(xliff_buffer, encoding="utf-8", xml_declaration=True)
+                        xliff_buffer.seek(0)
+                        st.download_button("Download Translated File", data=xliff_buffer, file_name=f"Translated_{filename}")
+
+                    elif file_extension == "pdf":
+                        # **Exception:** Save as TXT instead of PDF
+                        st.download_button("Download Translated File (TXT format)", data=translated_text, file_name=f"Translated_{filename}.txt")
+
+                    
+                
+                        
+                # Can be used wherever a "file-like" object is accepted:
+                #dataframe = pd.read_csv(uploaded_file)
+                #st.write(dataframe)
+                
+        else:
+
+            if "messages" not in st.session_state:
                 st.session_state.messages = []
 
-        with c3: 
-            user_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "user"]
-            assistant_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "assistant"]
 
-            data1 = {"User": user_messages, "AI Response": assistant_messages}
-            df_chat = pd.DataFrame(data1)
+            res = [' ']
+            # Chat input box
+            prompt = st.chat_input("Type a text you want to translate")
+            if prompt:
+                # Save user input to history
+                st.session_state.messages.append({"role": "user", "content": prompt})
 
-            df_chat.to_excel('Chats.xlsx', index=True)
-            with open('Chats.xlsx', "rb") as template_file:
-                template_byte = template_file.read()
+                # Display status while processing
+                with st.status("Translating...", expanded=True) as status:
+                    # Simulated delay to mimic processing (replace with actual call)
+                    #time.sleep(2)  # Replace with the time your `generate` function takes
+                    if llm_model == "NMT":
+                        contents = [prompt]
+                        response = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
+                    else:
+                        response = f"{translate_text(prompt, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)}"    # Replace with your `generate` function
+                        res.append(response)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    status.update(label="Translated", state="complete", expanded=True)
 
-            st.download_button(label="Download Chats",
-                                data=template_byte,
-                                file_name="Chats.xlsx",
-                                mime='application/octet-stream')
+            
+            for message in st.session_state.messages:
+                if message["role"] == "user":
+                    st.chat_message("user").write(message["content"])
+                else:
+                    st.chat_message("assistant").write(message["content"], key="copy_area")
+            
+            
+            c1, c3 = st.columns([0.1, 0.4])
+            with c1:
+                if st.button("🗑️ Clear Chat"):
+                    st.session_state.messages = []
+
+            with c3: 
+                user_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "user"]
+                assistant_messages = [msg["content"] for msg in st.session_state.messages if msg["role"] == "assistant"]
+
+                data1 = {"User": user_messages, "AI Response": assistant_messages}
+                df_chat = pd.DataFrame(data1)
+
+                df_chat.to_excel('Chats.xlsx', index=True)
+                with open('Chats.xlsx', "rb") as template_file:
+                    template_byte = template_file.read()
+
+                st.download_button(label="Download Chats",
+                                    data=template_byte,
+                                    file_name="Chats.xlsx",
+                                    mime='application/octet-stream')
