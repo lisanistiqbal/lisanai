@@ -19,7 +19,10 @@ import docx
 import xml.etree.ElementTree as ET
 import pickle
 from pathlib import Path
-import streamlit_authenticator as stauth  
+import streamlit_authenticator as stauth
+from docx import Document
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P 
 
 # --- USER AUTHENTICATION ---
 names = ["Asif Iqbal", "Sadullah Saad", "Faheem Ahmad"]
@@ -58,6 +61,7 @@ if authentication_status == None:
     st.warning("Please enter your username and password")
 
 if authentication_status:
+    st.write(f"Welcome, {name}!")
     q1, q2 = st.columns([7,1], vertical_alignment="center")
     with q2:
         # Logout button
@@ -72,9 +76,9 @@ if authentication_status:
         "top_p": 0.95,
         "top_k": 1,
     }
-    #api_key = st.secrets["genai"]["api_key"]
+    api_key = st.secrets["genai"]["api_key"]
 
-    genai.configure(api_key="AIzaSyCeKd7FcGWZs0wWDXTQZtHPR87kJL0Cehk")
+    genai.configure(api_key = api_key)
     safety_settings = [
         SafetySetting(
             category=SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
@@ -123,7 +127,7 @@ if authentication_status:
 
         # Stronger Prompt Template
         prompt = f"""
-        You are an expert Translator create by Lisan India. Your task is to translate texts **from {src} to {trg}** accurately. 
+        You are an expert Translator create by Lisan India. Your task is to translate texts **from {src} to {trg}** accurately with correct writing diraection (RTL or LTR). 
         The text belongs to the **{domain}** domain and should be translated in a **{tone}** tone.
 
         ### **Important Instructions:**
@@ -241,7 +245,7 @@ if authentication_status:
     a1, a2, a3 = st.columns([1,3,1], vertical_alignment="center")
     with a2:
         #st.title("Your AI for your Documents")
-        #st.markdown("<h3 style='text-align: center;'>Hello{name}</h3>", unsafe_allow_html=True)
+        #st.markdown("<h1 style='text-align: center;'>Hello{name}</h1>", unsafe_allow_html=True)
         st.markdown("<h1 style='text-align: center;'>Lisan AI</h1>", unsafe_allow_html=True)
 
     audio_on = st.toggle("Audio")
@@ -549,7 +553,7 @@ if authentication_status:
         
         instruction = st.text_area("Translation Instruction", 'None', height=250)
 
-        uploaded_file = st.file_uploader("Upload your mandatory translations (Excel file)", type=["xlsx"])
+        uploaded_file = st.file_uploader("Upload approved list of terms (Bilingual)", type=["xlsx"])
 
         if uploaded_file is not None:
             df = pd.read_excel(uploaded_file, header=None)  # Read without headers
@@ -608,7 +612,21 @@ if authentication_status:
                 elif file_extension == "docx":
                     # Read DOCX file
                     doc = docx.Document(uploaded_file)
-                    text = "\n".join([para.text for para in doc.paragraphs])
+                    extracted_data = []
+                    for element in doc.element.body:
+                        if isinstance(element, CT_P):  # If it's a paragraph
+                            para = element.xpath(".//w:t")  # Extract text
+                            if para:
+                                extracted_data.append(" ".join([t.text for t in para if t.text.strip()]))  # Join text
+                        
+                        elif isinstance(element, CT_Tbl):  # If it's a table
+                            table_data = []
+                            table = next(tbl for tbl in doc.tables if tbl._element is element)  # Find corresponding table
+                            for row in table.rows:
+                                table_data.append("\t".join([cell.text.strip() for cell in row.cells]))  # Join table row with tabs
+                            extracted_data.append("\n".join(table_data))  # Join all rows with newlines
+                    
+                    text =  "\n\n".join(extracted_data) 
                     st.write("Extracted Text:", text)
 
                 elif file_extension == "xliff":
@@ -621,11 +639,11 @@ if authentication_status:
 
                 else:
                     st.error("Unsupported file format")
+
                 if st.button("Translate"):
                     if llm_model == "NMT":
                         contents = [text]
-                        translated_data = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
-                        
+                        translated_data = f"{generate_NMT(contents, languages[source], languages[target])[0]}"  
                     else:
                         translated_text = translate_text(text, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)
                         st.write(translated_text)
@@ -666,7 +684,7 @@ if authentication_status:
                     
                 
                         
-                # Can be used wherever a "file-like" object is accepted:
+                #Can be used wherever a "file-like" object is accepted:
                 #dataframe = pd.read_csv(uploaded_file)
                 #st.write(dataframe)
                 
