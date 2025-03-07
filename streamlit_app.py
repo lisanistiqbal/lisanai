@@ -1029,7 +1029,7 @@ if authentication_status:
             res = [' ']
             # Chat input box
             text = st.chat_input("Type a text you want to translate")
-            st.write(f"{languages[target]}")
+            #st.write(f"{languages[target]}")
             if text:
                 # Save user input to history
                 st.session_state.messages.append({"role": "user", "content": text})
