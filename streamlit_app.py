@@ -4,7 +4,7 @@ import streamlit as st
 import json
 import time
 from io import StringIO, BytesIO
-import requests  # pip install requests
+import requests 
 from streamlit_lottie import st_lottie  
 import vertexai
 from typing import List
@@ -97,6 +97,357 @@ if authentication_status:
             threshold=SafetySetting.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         ),
     ]
+    
+    def get_prompt(text, src, trg, tone, domain, instruction, mandatory_translations):
+        if trg == 'bn':
+            prompt = """
+                        You are an expert Translator created by Lisan India. Your task is to translate texts **from {} to {}** with precision, ensuring correct writing direction (RTL or LTR). The text belongs to the **{}** domain and should be translated in a **{}** tone.
+
+                        Your translation should be **accurate, natural, and professional**, following Bengali linguistic norms and industry best practices.
+
+                        ---
+
+                        ## **🔹 মূল অনুবাদ নির্দেশিকা (Key Translation Rules):**
+
+                        ### **1. স্পষ্টতা ও প্রাকৃতিকতা (Clarity & Readability)**  
+                        - অনুবাদ **স্বাভাবিক ও প্রাকৃতিক হওয়া উচিত**, যেন এটি বাংলায় মৌলিকভাবে লেখা হয়েছে।  
+                        - **সহজ, স্পষ্ট ও ব্যবহারকারী-বান্ধব ভাষা** ব্যবহার করুন, যা বাংলা ভাষাভাষীদের কাছে সহজবোধ্য হবে।  
+                        - **শব্দ-প্রতি-শব্দ অনুবাদ নয়**, বরং **অর্থ যথাযথভাবে প্রকাশ করুন**।  
+
+                        ✅ **সঠিক:**  
+                        - **English:** "Create beautiful designs from thousands of professional templates."  
+                        - **Bengali:** "হাজারো পেশাদার টেমপ্লেট থেকে সুন্দর ডিজাইন তৈরি করুন।"  
+
+                        ❌ **ভুল:**  
+                        - "হাজারো পেশাদার টেমপ্লেট থেকে চমৎকার নকশা সৃষ্টি করুন।" (অপ্রাকৃতিক ও কঠিন শব্দ)  
+
+                        ---
+
+                        ### **2. বাক্য গঠন ও কণ্ঠস্বর (Sentence Structure & Voice)**  
+                        - **সক্রিয় কণ্ঠ (Active Voice) ব্যবহার করুন**, যেখানে সম্ভব, প্যাসিভ এড়িয়ে চলুন।  
+                        - **বাংলা ব্যাকরণের সঠিক ক্রম অনুসরণ করুন**, ইংরেজির মতো "Subject-Verb-Object" গঠন নয়।  
+
+                        ✅ **সঠিক:**  
+                        - **English:** "Here’s how to purchase your designs from Lisan."  
+                        - **Bengali:** "এভাবেই আপনি Lisan থেকে আপনার ডিজাইন কিনতে পারেন।"  
+
+                        ❌ **ভুল:**  
+                        - "এই পদ্ধতি দেখানো হলো যার মাধ্যমে ডিজাইন কেনা যাবে।" (প্যাসিভ ও অপ্রাকৃতিক)  
+
+                        ---
+
+                        ### **3. ব্যবহারকারীকে সম্বোধন (User Addressing)**  
+                        - **"আপনি" ব্যবহার করুন**, "তুমি" নয়, যাতে পেশাদার ও সম্মানজনক কণ্ঠ বজায় থাকে।  
+                        - **সৌজন্যমূলক অথচ বন্ধুত্বপূর্ণ ভাষা ব্যবহার করুন**।  
+
+                        ✅ **সঠিক:**  
+                        - **English:** "Set up your account now."  
+                        - **Bengali:** "আপনার অ্যাকাউন্ট এখন সেট করুন।"  
+
+                        ❌ **ভুল:**  
+                        - "তোমার অ্যাকাউন্ট এখন সেট করো।" (অতিরিক্ত অনানুষ্ঠানিক)  
+
+                        ---
+
+                        ### **4. প্রযুক্তিগত ও UI শর্তাবলী (Technical & UI Terms)**  
+                        - **UI বোতামের নাম সর্বদা ক্রিয়ামূলক (verb form) হতে হবে।**  
+
+                        ✅ **সঠিক:**  
+                        - **English:** "Start" → **"শুরু করুন"**  
+                        - **English:** "Continue" → **"চালিয়ে যান"**  
+
+                        ❌ **ভুল:**  
+                        - "এটি শুরু করুন" (অপ্রয়োজনীয় দীর্ঘ)  
+
+                        - **প্রযুক্তিগত পরিভাষা (CPU, USB, PDF) বাংলায় অনুবাদ করবেন না।**  
+                        - **উদাহরণ:** "Set the CPU host frequency" → **"CPU হোস্ট ফ্রিকোয়েন্সি সেট করুন"**  
+
+                        ---
+
+                        ### **5. বিরামচিহ্ন ও ফরম্যাটিং (Punctuation & Formatting)**  
+                        - **বাংলা বিরামচিহ্ন অনুসরণ করুন** (যেমন, "এবং" বা "অথবা" এর আগে কমা নয়)।  
+                        - **ব্র্যাকেট, প্রতীক (&, #, @) ও পথ নির্দেশিকা ইংরেজিতেই রাখুন।**  
+
+                        ✅ **সঠিক:**  
+                        - **English:** "Price (USD)"  
+                        - **Bengali:** "মূল্য (USD)"  
+
+                        ❌ **ভুল:**  
+                        - "মূল্য (মার্কিন ডলার)" (USD অনুবাদ করা উচিত নয়)  
+
+                        - **Boolean শব্দ ("AND", "OR", "IF") অনুবাদ করুন, তবে বড় হাতের অক্ষরে রাখুন।**  
+
+                        ✅ **সঠিক:**  
+                        - "IF" → "যদি"  
+                        - "OR" → "অথবা"  
+                        - "AND" → "এবং"  
+
+                        ❌ **ভুল:**  
+                        - "if" → "যদি" (এটি বড় হাতের অক্ষরে হওয়া উচিত)  
+
+                        ---
+
+                        ### **6. প্লেসহোল্ডার ও ভেরিয়েবলস (Handling Placeholders & Variables)**  
+                        - **Curly brackets `{{}}` এর মধ্যে থাকা শব্দ অনুবাদ করবেন না।**  
+
+                        ✅ **সঠিক:**  
+                        - **English:** "Are you sure you want to delete {{row}}?"  
+                        - **Bengali:** "আপনি কি নিশ্চিত যে আপনি {{row}} মুছতে চান?"  
+
+                        ❌ **ভুল:**  
+                        - "আপনি কি নিশ্চিত যে আপনি সারি {{row}} মুছতে চান?" ("row" অনুবাদ করা যাবে না)  
+
+                        - **Nested placeholders `{{{{...{{{{...}}}}...}}}}` ক্ষেত্রে শুধুমাত্র অভ্যন্তরীণ অংশ অনুবাদ করুন।**  
+
+                        ✅ **সঠিক:**  
+                        - **English:** "The {{countEmails, plural, one {{email address already exists}} other {{email addresses already exist}}}} {{listOfEmails}}"  
+                        - **Bengali:** "ডাটাবেসে {{countEmails, plural, one {{ইমেল ঠিকানা ইতিমধ্যে বিদ্যমান}} other {{ইমেল ঠিকানাগুলি ইতিমধ্যে বিদ্যমান}}}} {{listOfEmails}}"  
+
+                        ---
+
+                        ### **7. স্থানীয়করণ নিয়ম (Localization Rules)**  
+                        - **তারিখ:** **MM/DD/YYYY → "তারিখ মাস বছর"**  
+                        - **উদাহরণ:** "07/25/2016" → "২৫ জুলাই ২০১৬"  
+
+                        - **সময় বিন্যাস:**  
+                        - **১২-ঘণ্টা বিন্যাস (AM/PM) ব্যবহার করুন।**  
+                        - **উদাহরণ:** "10:30 AM" → "১০:৩০ পূর্বাহ্ন"  
+
+                        - **মুদ্রা রূপান্তর:**  
+                        - **₹1,000 → "১,০০০ টাকা"**  
+                        - **$1,000 → "১,০০০ ডলার"** (বিদেশি মুদ্রা অনুবাদ করবেন না)  
+
+                        - **পরিমাপ একক:**  
+                        - **"5 kg" → "৫ কেজি"**  
+                        - **"50 cm" → "৫০ সেন্টিমিটার"**  
+
+                        ---
+
+                        ### **8. সাধারণ অনুবাদ পছন্দ (Common Translation Preferences)**  
+                        - **বাংলা ভাষায় ইংরেজি গৃহীত শব্দ ব্যবহার করুন।**  
+                        - **উদাহরণ:** "Follow" → **"ফলো করুন"**, না যে "অনুসরণ করুন"  
+                        - **উদাহরণ:** "Check" → **"চেক করুন"**, না যে "পরীক্ষা করুন"  
+
+                        - **অনাবশ্যক কঠিন বাংলা পরিভাষা এড়িয়ে চলুন।**  
+                        - **উদাহরণ:** "Newspaper" → **"সংবাদপত্র"**, না যে "দৈনিক পত্রিকা"  
+
+                        ---
+
+                        ### **🔹 বাধ্যতামূলক অনুবাদ (Mandatory Translations):**  
+                        {}
+                        ### *Additional Instruction:*  
+                        {}
+
+                        ### **📌 অনুবাদ করার জন্য পাঠ্য (Text to Translate):**  
+                        {}
+
+                        ### **✅ আপনার অনুবাদ (Your Translation):** """.format(src, trg, domain, tone, mandatory_translations, instruction, text)
+
+        elif trg == 'ar':
+            prompt = """You are an expert Translator created by Lisan India. Your task is to translate texts *from {src} to {trg}* accurately with correct writing direction (RTL or LTR). 
+                        The text belongs to the *{domain}* domain and should be translated in a *{tone}* tone.
+
+                        ### *Important Instructions:*
+                        1. *Strictly use the provided mandatory translations* if the first word is from {src} language and the other is in {trg} language.
+                        2. *Do not modify* words that are replaced based on the dictionary.
+                        3. *Ensure smooth, natural readability* while keeping accuracy.
+                        4. *Keep action buttons as imperative verbs* (e.g., "Save", "Delete").
+                        5. *Do not translate* anything inside curly brackets ({{}}). Example:  
+                        - ❌ *Wrong:* "Consent accordé le {{date}}"  
+                        - ✅ *Correct:* "Consent Granted on {{date}}"  
+                        6. *Keep path identification elements in English*. Example:  
+                        - ❌ *Wrong:* "sw2.stockage.appId doit être défini"  
+                        - ✅ *Correct:* "sw2.storage.appId must be set"  
+                        7. *Do not translate words without spaces*. Example:  
+                        - "SW2 RecurrenceMonths" → should remain unchanged.  
+                        8. *Translate Boolean indicators but keep them in CAPITAL LETTERS*. Example:  
+                        - "IF", "OR", and "AND" should be translated but stay uppercase.  
+                        9. *For nested curly brackets, translate only inner content*. Example:  
+                        - "The {{countEmails, plural, one {{email address already exists}} other {{email addresses already exist}}} {{listOfEmails}}}"  
+                        - *Only translate* "email address already exists" but *not* "countEmails" or "plural".
+
+                        ### *Mandatory Translations (Do not modify these words):*  
+                        {mandatory_translations}
+
+                        ### *Instruction:*  
+                        {instruction}
+
+                        ### *Text to Translate:*  
+                        {text}
+
+                        ### *Your Translation:*  
+                        """
+        
+        elif trg == 'hi':
+            prompt = """You are an expert Translator created by Lisan India. Your task is to translate texts **from {} to {}** with precision, ensuring correct writing direction (RTL or LTR). The text belongs to the **{}** domain and should be translated in a **{}** tone.
+
+                        Your translation should be **accurate, natural, and professional**, following Hindi linguistic norms and industry best practices.
+                        ---
+
+                        ## **Key Translation Rules:**
+
+                        ### **1. Clarity & Readability**  
+                        - Ensure the translation sounds **natural and locally adapted**, not like a literal translation from English.  
+                        - Use **simple, clear, and user-friendly** language that feels natural to Hindi speakers.  
+                        - **Avoid word-for-word translation**—instead, focus on conveying meaning.  
+
+                        ✅ **Correct:**  
+                        - **English:** "Create beautiful designs from thousands of professional templates."  
+                        - **Hindi:** "हज़ारों पेशेवर टेम्पलेट से ख़ूबसूरत डिज़ाइन बनाएँ।"  
+
+                        ❌ **Incorrect:**  
+                        - "हज़ारों पेशेवर टेम्पलेट से सुंदर डिज़ाइन बनाइए।" (Too formal and unnatural)  
+
+                        ---
+
+                        ### **2. Sentence Structure & Voice**  
+                        - **Prefer active voice over passive voice** for better clarity.  
+                        - **Word order should follow Hindi grammar**, not English syntax.  
+
+                        ✅ **Correct:**  
+                        - **English:** "Here’s how to purchase your designs from Lisan."  
+                        - **Hindi:** "आपकी डिज़ाइन को Lisan से खरीदने का तरीका यह है।"  
+
+                        ❌ **Incorrect:**  
+                        - "वह तरीका यहां प्रस्तुत है जिससे आपकी डिज़ाइन Lisan से खरीदी जा सकती है।" (Unnatural passive construction)  
+
+                        ---
+
+                        ### **3. User Addressing**  
+                        - Always address the user as **"आप"** instead of **"तुम"** for a polite and professional tone.  
+                        - Maintain **a conversational but professional tone** without being overly formal.  
+
+                        ✅ **Correct:**  
+                        - **English:** "Set up your account now."  
+                        - **Hindi:** "अपना खाता अभी सेट करें।"  
+
+                        ❌ **Incorrect:**  
+                        - "तुम्हारा खाता अभी सेट करो।" (Too informal)  
+
+                        ---
+
+                        ### **4. Technical & UI Terms**  
+                        - **Software button labels** should be translated using **verb forms** (command format).  
+
+                        ✅ **Correct:**  
+                        - **English:** "Start" → **"शुरू करें"**  
+                        - **English:** "Continue" → **"आगे बढ़ें"**  
+
+                        ❌ **Incorrect:**  
+                        - "इसे शुरू कीजिए" (Too long and unnatural)  
+
+                        - **Technical terms like "CPU", "USB", "PDF" should not be translated.**  
+                        - **Example:** "Set the CPU host frequency" → **"CPU होस्ट फ़्रीक्वेंसी सेट करें"**  
+                        - Do not attempt to translate "CPU" or "USB" into Hindi.  
+
+                        ---
+
+                        ### **5. Formatting & Punctuation**  
+                        - **Follow Hindi punctuation rules** (do not place a comma before "और" or "या").  
+                        - **Brackets, symbols (&, #, @), and path identifiers** should be kept unchanged.  
+
+                        ✅ **Correct:**  
+                        - **English:** "Price (USD)"  
+                        - **Hindi:** "मूल्य (USD)"  
+
+                        ❌ **Incorrect:**  
+                        - "मूल्य (अमेरिकी डॉलर)" (Adding unnecessary translation for "USD")  
+
+                        - **Boolean terms ("AND", "OR", "IF") should be translated but kept in CAPITAL LETTERS.**  
+
+                        ✅ **Correct:**  
+                        - "IF" → "यदि"  
+                        - "OR" → "या"  
+                        - "AND" → "और"  
+
+                        ❌ **Incorrect:**  
+                        - "if" → "यदि" (Should be capitalized)  
+
+                        ---
+
+                        ### **6. Handling Placeholders & Variables**  
+                        - **Do not translate text inside curly brackets `{{}}`.**  
+
+                        ✅ **Correct:**  
+                        - **English:** "Are you sure you want to delete {{row}}?"  
+                        - **Hindi:** "क्या आप वाकई {{row}} को हटाना चाहते हैं?"  
+
+                        ❌ **Incorrect:**  
+                        - "क्या आप वाकई पंक्ति {{row}} को हटाना चाहते हैं?" (Translating "row" incorrectly)  
+
+                        - **For nested curly brackets `{{...{{...}}...}}`**, translate only the **inner content**, not the placeholders.  
+
+                        ✅ **Correct:**  
+                        - **English:** "The {{countEmails, plural, one {{email address already exists}} other {{email addresses already exist}}}} {{listOfEmails}}"  
+                        - **Hindi:** "डेटाबेस में {{countEmails, plural, one {{ईमेल पता पहले से मौजूद है}} other {{ईमेल पते पहले से मौजूद हैं}}}} {{listOfEmails}}"  
+
+                        ❌ **Incorrect:**  
+                        - "डेटाबेस में {{गिनतीईमेल, बहुवचन, एक {{ईमेल पता पहले से मौजूद है}} अन्य {{ईमेल पते पहले से मौजूद हैं}}}} {{सूचीईमेल}}" (Translating outer placeholders)  
+
+                        ---
+
+                        ### **7. Localization Rules**  
+                        - **Dates:** Convert **MM/DD/YYYY → Date Month Year.**   
+                        - **Example:** "07/25/2016 – 25 जुलाई 2016." (strictly) 
+
+                        - **Time Format:** Use **12-hour format** unless for railway/airline schedules.  
+                        - **Example:** "10:30 AM" → "10:30 पूर्वाह्न"  
+
+                        - **Currency Handling:**  
+                        - **₹1,000 → "1,000 रु."** (Keep Indian Rupees format)  
+                        - **$1,000 → "1,000 डॉलर"** (Do not convert foreign currencies)  
+
+                        - **Measurement Units:** Use standard Hindi terms.  
+                        - **Example:** "5 kg" → **"5 किलोग्राम"**  
+                        - **Example:** "50 cm" → **"50 सेंटीमीटर"**  
+
+                        ---
+
+                        ### **8. Common Translation Preferences**  
+                        - **Use borrowed English words** where appropriate.  
+                        - **Example:** "Follow" → **"फ़ॉलो करें"**, not "अनुगमन करें"  
+                        - **Example:** "Check" → **"चेक करें"**, not "जाँच करें"  
+
+                        - **Avoid Sanskritized Hindi** if a simpler Urdu/Persian term is more common.  
+                        - **Example:** "Newspaper" → **"अख़बार"**, not "समाचार-पत्र"  
+
+                        - **Avoid literal translations.**  
+                        - **Example:** "Scientific and award-winning" → **"पुरस्कृत और विज्ञान पर आधारित"**, not "वैज्ञानिक एवं पुरस्कार विजेता"  
+
+                        ---
+
+                        ### **Mandatory Translations (Do not modify these words):**  
+                        {}
+                        ### **Additional Instruction:**  
+                        {}
+                        ### **Text to Translate:**  
+                        {}
+
+                        ### **Your Translation:**  
+                        """.format(src, trg, domain, tone, mandatory_translations, instruction, text)
+        else:
+            prompt = """You are an expert Translator create by Lisan India. Your task is to translate texts **from {src} to {trg}** accurately with correct writing diraection (RTL or LTR). 
+                    The text belongs to the **{domain}** domain and should be translated in a **{tone}** tone.
+
+                    ### **Important Instructions:**
+                    1. **Strictly use the provided mandatory translations** if 1st word is from {src} language and other is in {trg} language.
+                    2. **Do not modify** words that are replaced based on the dictionary.
+                    3. **Ensure smooth, natural readability** while keeping accuracy.
+
+                    ### **Mandatory Translations (Do not modify these words):**  
+                    {mandatory_translations}
+
+                    ### **Instruction:**  
+                    {instruction}
+
+                    ### **Text to Translate:**  
+                    {text}
+
+                    ### **Your Translation:**  
+                    """
+        return prompt
+            
+
     def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', instruction='0'):
         # Initialize Vertex AI with project and location from secrets
         service_account_info = st.secrets["gcp_service_account"]
@@ -126,26 +477,7 @@ if authentication_status:
     def translate_text(text, src, trg, llm_model, tone, domain, instruction, mandatory_translations = 'None'):
 
         # Stronger Prompt Template
-        prompt = f"""
-        You are an expert Translator create by Lisan India. Your task is to translate texts **from {src} to {trg}** accurately with correct writing diraection (RTL or LTR). 
-        The text belongs to the **{domain}** domain and should be translated in a **{tone}** tone.
-
-        ### **Important Instructions:**
-        1. **Strictly use the provided mandatory translations** if 1st word is from {src} language and other is in {trg} language.
-        2. **Do not modify** words that are replaced based on the dictionary.
-        3. **Ensure smooth, natural readability** while keeping accuracy.
-
-        ### **Mandatory Translations (Do not modify these words):**  
-        {mandatory_translations}
-
-        ### **Instruction:**  
-        {instruction}
-
-        ### **Text to Translate:**  
-        {text}
-
-        ### **Your Translation:**  
-        """
+        prompt = get_prompt(text, src, trg, tone, domain, instruction, mandatory_translations)
         model = genai.GenerativeModel(llm_model)
         response = model.generate_content(prompt)
         
@@ -696,20 +1028,22 @@ if authentication_status:
 
             res = [' ']
             # Chat input box
-            prompt = st.chat_input("Type a text you want to translate")
-            if prompt:
+            text = st.chat_input("Type a text you want to translate")
+            st.write(f"{languages[target]}")
+            if text:
                 # Save user input to history
-                st.session_state.messages.append({"role": "user", "content": prompt})
+                st.session_state.messages.append({"role": "user", "content": text})
 
                 # Display status while processing
                 with st.status("Translating...", expanded=True) as status:
                     # Simulated delay to mimic processing (replace with actual call)
                     #time.sleep(2)  # Replace with the time your `generate` function takes
                     if llm_model == "NMT":
-                        contents = [prompt]
+                        contents = [text]
                         response = f"{generate_NMT(contents, languages[source], languages[target])[0]}"
                     else:
-                        response = f"{translate_text(prompt, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)}"    # Replace with your `generate` function
+                        response = f"{translate_text(text, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)}"    # Replace with your `generate` function
+                        st.write(f"{languages[target]}")
                         res.append(response)
                     st.session_state.messages.append({"role": "assistant", "content": response})
                     status.update(label="Translated", state="complete", expanded=True)
@@ -742,3 +1076,4 @@ if authentication_status:
                                     data=template_byte,
                                     file_name="Chats.xlsx",
                                     mime='application/octet-stream')
+
