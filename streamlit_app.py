@@ -1106,6 +1106,16 @@ else:
                     df_res["ID"] = df_res.index.astype(str) 
                     df_res.to_excel('result.xlsx')
                     xliff_file = df_to_xliff(df_res, uploaded_file, output_path)
+                    with open(output_path, "rb") as f:
+                        xliff_data = f.read()
+
+                    # Streamlit download button
+                    st.download_button(
+                        label="📥 Download Translated XLIFF",
+                        data=xliff_data,
+                        file_name=output_path,
+                        mime="application/xml"
+                    )
                     # Save as XLIFF XML
                     '''for elem in root.iter():
                         if elem.text:
