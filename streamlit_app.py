@@ -1091,6 +1091,8 @@ else:
                 elif file_extension == "docx":
                     # Save as DOCX file
                     translated_doc = docx.Document()
+                    translated_text = translate_text(text, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)
+                    st.write(translated_text)
                     translated_doc.add_paragraph(translated_text)
                     docx_buffer = BytesIO()
                     translated_doc.save(docx_buffer)
