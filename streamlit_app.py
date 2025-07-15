@@ -480,7 +480,25 @@ def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', inst
 def translate_text(text, src, trg, llm_model, tone, domain, instruction, mandatory_translations = 'None'):
 
     # Stronger Prompt Template
-    prompt = get_prompt(text, src, trg, tone, domain, instruction, mandatory_translations)
+    prompt = '''You are an expert Translator create by Lisan India. Your task is to translate texts **from {} to {}** accurately with correct writing diraection (RTL or LTR). 
+                The text belongs to the **{}** domain and should be translated in a **{}** tone.
+
+                ### **Important Instructions:**
+                1. **Strictly use the provided mandatory translations** if 1st word is from {} language and other is in {} language.
+                2. **Do not modify** words that are replaced based on the dictionary.
+                3. **Ensure smooth, natural readability** while keeping accuracy.
+
+                ### **Mandatory Translations (Do not modify these words):**  
+                {}
+
+                ### **Instruction:**  
+                {}
+
+                ### **Text to Translate:**  
+                {}
+
+                ### **Your Translation:**  
+                '''.format(src, trg, domain, tone, src, trg, mandatory_translations, instruction, text)
     model = genai.GenerativeModel(llm_model)
     response = model.generate_content(prompt)
     
