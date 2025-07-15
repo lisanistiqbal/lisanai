@@ -1022,7 +1022,7 @@ else:
     on = st.toggle("Text File")
 
     if on:
-        uploaded_file = st.file_uploader("Upload a file", type=["txt", "xlsx","csv", "pdf", "docx", "xliff"])
+        uploaded_file = st.file_uploader("Upload a file", type=["txt", "xlsx","csv", "pdf", "docx", "xliff", "mqxliff", "sdlxliff"])
         source_col = st.text_area("Source Column Name", 'Source')
         target_col = st.text_area("Target Column Name", 'Target')
 
@@ -1036,7 +1036,7 @@ else:
                 text = stringio.read()
                 st.write("Extracted Text:", text)
             
-            elif file_extension == "xliff":
+            elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff":
                 output_path = 'Result.xliff'
                 df = mqxliff_to_df(uploaded_file, )
                 json_payload = df_to_json(df)
@@ -1117,7 +1117,7 @@ else:
                     docx_buffer.seek(0)
                     st.download_button("Download Translated File", data=docx_buffer, file_name=f"Translated_{filename}")
 
-                elif file_extension == "xliff":
+                elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff":
                     translated_json = translate_json(json_payload, target, source)
                     st.text(translated_json)
                     df_res = pd.DataFrame(translated_json)
