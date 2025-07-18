@@ -1095,12 +1095,12 @@ else:
                 output_path = 'Result.xliff'
                 df = mqxliff_to_df(uploaded_file, )
                 json_payload = df_to_json(df)
-                st.text(df)
+                st.dataframe(df)
             elif file_extension == "sdlxliff":
                 output_path = 'Result.xliff'
                 df = sdlxliff_to_df(uploaded_file)
                 json_payload = df_to_json(df)
-                st.text(df)
+                st.dataframe(df)
 
             elif file_extension == "xlsx":
                 df = pd.read_excel(uploaded_file, sheet_name=None)  # Load all sheets
@@ -1109,7 +1109,7 @@ else:
                     #text_data.append(f"Sheet: {sheet_name}")
                     text_data.append(sheet.to_string(index=False))
                 text = "\n".join(text_data)
-                st.write("Extracted Text:", text)
+                st.dataframe(df)
 
             elif file_extension == "pdf":
                 # Read PDF file
@@ -1135,14 +1135,6 @@ else:
                         extracted_data.append("\n".join(table_data))  # Join all rows with newlines
                 
                 text =  "\n\n".join(extracted_data) 
-                st.write("Extracted Text:", text)
-
-            elif file_extension == "mqxliff":
-                # Read XLIFF (XML) file
-                tree = ET.parse(uploaded_file)
-                root = tree.getroot()
-                text_elements = [elem.text for elem in root.iter() if elem.text]
-                text = "\n".join(text_elements)
                 st.write("Extracted Text:", text)
 
             else:
@@ -1181,7 +1173,7 @@ else:
                     translated_json = translate_json(json_payload, target, source)
                     df_res = pd.DataFrame(translated_json)
                     df_res.rename(columns={'translated': target_col}, inplace=True)
-                    st.text(df_res)
+                    st.dataframe(df_res)
                     #df_res.to_excel(result_file, index=False)
                     df_res["ID"] = df_res.index.astype(str) 
                     df_res.to_excel('result.xlsx')
