@@ -1120,7 +1120,7 @@ else:
             elif file_extension == "xliff" or file_extension == "mqxliff":
                 output_path = 'Result.xliff'
                 df = mqxliff_to_df(uploaded_file, )
-                json_payload = df_to_json_single_quotes(df)
+                json_payload = df_to_json(df)
                 st.dataframe(df)
             elif file_extension == "sdlxliff":
                 output_path = 'Result.xliff'
