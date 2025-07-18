@@ -712,15 +712,8 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
                 The text belongs to the general domain and should be translated in a Formal tone.
                 and the response should be strictly in this format {} and the get the texts from this {}'''.format(source, target,res_schema, text_json)
     response = llm_model.generate_content(prompt)
-    data = json.loads(response.text)
-
-    # Replace inner " with ' in values of 'Source' and 'translated'
-    for item in data:
-        for key in ['Source', 'translated']:
-            if key in item and isinstance(item[key], str):
-                item[key] = item[key].replace('"', "'")
-    
-
+    safe_text = re.sub(r'("Source":\s*"|\"translated\":\s*")((?:\\.|[^"\\])*)(?=")', lambda m: m.group(1) + m.group(2).replace('"', "'"),response.text)
+    translated_json = json.loads(safe_text)
     return data
 
 def translate_excel(input_file, source_col_name, target_col_name):
