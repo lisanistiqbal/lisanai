@@ -1142,12 +1142,6 @@ else:
                 st.error("Unsupported file format")
 
             if st.button("Translate"):
-                '''if llm_model == "NMT":
-                    contents = [text]
-                    translated_data = f"{generate_NMT(contents, languages[source], languages[target])[0]}"  
-                else:
-                    translated_text = translate_text(text, languages[source], languages[target], llm_model, tone, domain, instruction, mandatory_translations)
-                    st.write(translated_text)'''
                 if file_extension in ["txt", "csv"]:
                     # Save as text file
                     st.download_button("Download Translated File", data=translated_text, file_name=f"Translated_{filename}")
