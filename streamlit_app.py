@@ -715,7 +715,7 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
     raw = response.text
 
     # Escape inner quotes that are inside value strings
-    fixed = re.sub(r'":\s?"([^"]*?)"([^"]*?)"([^"]*?)"', r'": "\1\\\"\2\\\"\3"', raw)
+    fixed = re.sub(r'"(Source|translated)":\s*"([^"]*)"', lambda m: f'"{m.group(1)}": \'{m.group(2)}\'', raw)    
     data = json.loads(fixed)
     return data
 
