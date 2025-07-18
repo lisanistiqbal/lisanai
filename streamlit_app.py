@@ -692,7 +692,7 @@ def load_lottieurl(url: str):
     return r.json()
 
 def df_to_json(df, source_col = 'Source', target_col= 'Target'):
-    return df[[source_col]].rename(columns={source_col: "text"}).to_dict(orient='records')
+    return df[[source_col]].rename(columns={source_col: 'text'}).to_dict(orient='records')
 
 def translate_json(text_json, target, source = 'English', source_col = 'Source', target_col= 'Target'):
     llm_model_config = {'temperature': 0.1, 'top_p': 1, 'top_k': 40,
