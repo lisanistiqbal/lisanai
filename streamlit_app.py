@@ -532,6 +532,61 @@ def mqxliff_to_df(file_path, source_col= 'Source', target_col = 'Target'):
     #print(f"✅ Excel saved to: {output_path}")
     return df
 
+def sdlxliff_to_df(file_path, source_col='Source', target_col='Target', debug=False):
+    tree = etree.parse(file_path)
+    root = tree.getroot()
+
+    nsmap = {
+        'xliff': 'urn:oasis:names:tc:xliff:document:1.2',
+        'sdl': 'http://sdl.com/FileTypes/SdlXliff/1.0'
+    }
+
+    rows = []
+    trans_units = root.findall('.//xliff:trans-unit', namespaces=nsmap)
+    if debug:
+        print("Found trans-units:", len(trans_units))
+
+    for unit in trans_units:
+        unit_id = unit.get("id")
+
+        # Try <mrk> inside <seg-source>
+        source_mrks = unit.findall('.//xliff:seg-source//xliff:mrk', namespaces=nsmap)
+        if source_mrks:
+            source_text = ' '.join([''.join(m.itertext()).strip() for m in source_mrks])
+        else:
+            # Fallback to <source>
+            source_el = unit.find('.//xliff:source', namespaces=nsmap)
+            source_text = ''.join(source_el.itertext()).strip() if source_el is not None else ''
+
+        # Try <mrk> inside <target>
+        target_mrks = unit.findall('.//xliff:target//xliff:mrk', namespaces=nsmap)
+        if target_mrks:
+            target_text = ' '.join([''.join(m.itertext()).strip() for m in target_mrks])
+        else:
+            # Fallback to <target>
+            target_el = unit.find('.//xliff:target', namespaces=nsmap)
+            target_text = ''.join(target_el.itertext()).strip() if target_el is not None else ''
+
+        # Include rows that have either
+        if source_text or target_text:
+            rows.append({
+                'ID': unit_id,
+                source_col: source_text,
+                target_col: target_text
+            })
+        elif debug:
+            print(f"❌ Skipping unit {unit_id} — no text found")
+            print("Raw <source>:", etree.tostring(unit.find('.//xliff:source', namespaces=nsmap), encoding='unicode'))
+            print("Raw <target>:", etree.tostring(unit.find('.//xliff:target', namespaces=nsmap), encoding='unicode'))
+            print("-" * 50)
+
+
+    df = pd.DataFrame(rows)
+    if debug and df.empty:
+        print("⚠️ No usable data found.")
+    return df
+
+
 def clean_xml_text(text):
     if not isinstance(text, str):
         return ""
@@ -1036,11 +1091,16 @@ else:
                 text = stringio.read()
                 st.write("Extracted Text:", text)
             
-            elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff":
+            elif file_extension == "xliff" or file_extension == "mqxliff":
                 output_path = 'Result.xliff'
                 df = mqxliff_to_df(uploaded_file, )
                 json_payload = df_to_json(df)
-                st.text(json_payload)
+                st.text(df)
+            elif file_extension == "sdlxliff":
+                output_path = 'Result.xliff'
+                df = sdlxliff_to_df(uploaded_file)
+                json_payload = df_to_json(df)
+                st.text(df)
 
             elif file_extension == "xlsx":
                 df = pd.read_excel(uploaded_file, sheet_name=None)  # Load all sheets
@@ -1119,9 +1179,9 @@ else:
 
                 elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff":
                     translated_json = translate_json(json_payload, target, source)
-                    st.text(translated_json)
                     df_res = pd.DataFrame(translated_json)
                     df_res.rename(columns={'translated': target_col}, inplace=True)
+                    st.text(df_res)
                     #df_res.to_excel(result_file, index=False)
                     df_res["ID"] = df_res.index.astype(str) 
                     df_res.to_excel('result.xlsx')
