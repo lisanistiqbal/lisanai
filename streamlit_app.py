@@ -726,7 +726,7 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
     print(raw)
     return eval(raw)
 
-def batch_translate_df(df, source_lang, target_lang, batch_size=100, delay=2):
+def batch_translate_df(df, source_lang, target_lang, batch_size=40, delay=1):
     result_df = pd.DataFrame()
 
     for i in range(0, len(df), batch_size):
