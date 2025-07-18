@@ -1188,14 +1188,6 @@ else:
                         file_name=output_path,
                         mime="application/xml"
                     )
-                    # Save as XLIFF XML
-                    '''for elem in root.iter():
-                        if elem.text:
-                            elem.text = translated_text  # Replace text with translated text
-                    xliff_buffer = BytesIO()
-                    tree.write(xliff_buffer, encoding="utf-8", xml_declaration=True)
-                    xliff_buffer.seek(0)
-                    st.download_button("Download Translated File", data=xliff_buffer, file_name=f"Translated_{filename}")'''
                 elif file_extension == "pdf":
                     # **Exception:** Save as TXT instead of PDF
                     st.download_button("Download Translated File (TXT format)", data=translated_text, file_name=f"Translated_{filename}.txt")
