@@ -700,10 +700,10 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
     llm_model = genai.GenerativeModel(model_name = 'gemini-2.0-flash', generation_config = llm_model_config)
 
     res_schema = '''[{{
-                "{}": "string, required — the same as in the input",
-                "translated": "string, required — the translated version of the 'text' field",
-                "{}": "string, required — the same as in the input",
-                "translated": "empty string, if teh text is null or empty",
+                '{}': 'string, required — the same as in the input',
+                translated': 'string, required — the translated version of the "text" field',
+                '{}': 'string, required — the same as in the input',
+                'translated': 'empty string, if teh text is null or empty',
                 .
                 .
                 }}]'''.format(source_col, source_col)
@@ -713,12 +713,8 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
                 and the response should be strictly in this format {} and the get the texts from this {}'''.format(source, target,res_schema, text_json)
     response = llm_model.generate_content(prompt)
     raw = response.text
-    print(raw)
-    # Escape inner quotes that are inside value strings
-    fixed = re.sub(r'"(Source|translated)":\s*"((?:[^"\\]|\\.)*)"', lambda m: f'"{m.group(1)}": "{m.group(2).replace(\'"\', "\'")}"', response.text)
-
-    print(fixed)
-    return eval(fixed)
+    #print(fixed)
+    return eval(raw)
 
 def translate_excel(input_file, source_col_name, target_col_name):
     df = pd.read_excel(input_file)
