@@ -712,7 +712,7 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
                 The text belongs to the general domain and should be translated in a Formal tone.
                 and the response should be strictly in this format {} and the get the texts from this {}'''.format(source, target,res_schema, text_json)
     response = llm_model.generate_content(prompt)
-    safe_text = re.sub(r'(?<=: )"([^"]+)"(?=\s)', r"'\1'", response.text)
+    safe_text = re.sub(r'(":.*?)(?<!\\)"(.*?)(?<!\\)"', r"\1'\2'", response.text)
     translated_json = json.loads(safe_text)
     return translated_json
 
