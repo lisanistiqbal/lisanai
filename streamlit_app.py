@@ -713,9 +713,10 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
                 and the response should be strictly in this format {} and the get the texts from this {}'''.format(source, target,res_schema, text_json)
     response = llm_model.generate_content(prompt)
     raw = response.text
-
+    print(raw)
     # Escape inner quotes that are inside value strings
     fixed = re.sub(r'"(Source|translated)":\s*"([^"]*)"', lambda m: f'"{m.group(1)}": \'{m.group(2)}\'', raw)    
+    print(fixed)
     data = json.loads(fixed)
     return data
 
@@ -1170,7 +1171,7 @@ else:
 
                 elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff":
                     translated_json = translate_json(json_payload, target, source)
-                    df_res = pd.DataFrame([translated_json])
+                    df_res = pd.DataFrame(translated_json)
                     df_res.rename(columns={'translated': target_col}, inplace=True)
                     st.dataframe(df_res)
                     #df_res.to_excel(result_file, index=False)
