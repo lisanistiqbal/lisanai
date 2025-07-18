@@ -691,7 +691,12 @@ def load_lottieurl(url: str):
         return None
     return r.json()
 
-def df_to_json(df, source_col = 'source', target_col= 'target'):
+'''def df_to_json(df, source_col = 'source', target_col= 'target'):
+    return df[[source_col]].rename(columns={source_col: 'text'}).to_dict(orient='records')'''
+
+def df_to_json(df, source_col="source"):
+    if source_col not in df.columns:
+        raise ValueError(f"Expected column '{source_col}' not found in DataFrame. Found columns: {df.columns.tolist()}")
     return df[[source_col]].rename(columns={source_col: 'text'}).to_dict(orient='records')
 def df_to_json_single_quotes(df, source_col='Source', target_col='Target'):
     # Convert to JSON string with proper escaping
