@@ -1170,7 +1170,7 @@ else:
 
                 elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff":
                     translated_json = translate_json(json_payload, target, source)
-                    df_res = pd.DataFrame(translated_json)
+                    df_res = pd.DataFrame([translated_json])
                     df_res.rename(columns={'translated': target_col}, inplace=True)
                     st.dataframe(df_res)
                     #df_res.to_excel(result_file, index=False)
