@@ -723,7 +723,7 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
                 and the response should be strictly in this format {} and the get the texts from this {}'''.format(source, target,res_schema, text_json)
     response = llm_model.generate_content(prompt)
     raw = response.text
-    #print(fixed)
+    print(raw)
     return eval(raw)
 
 def translate_excel(input_file, source_col_name, target_col_name):
