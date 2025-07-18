@@ -693,7 +693,17 @@ def load_lottieurl(url: str):
 
 def df_to_json(df, source_col = 'Source', target_col= 'Target'):
     return df[[source_col]].rename(columns={source_col: 'text'}).to_dict(orient='records')
-
+def df_to_json_single_quotes(df, source_col='Source', target_col='Target'):
+    # Convert to JSON string with proper escaping
+    json_str = json.dumps(
+        df[[source_col]].rename(columns={source_col: 'text'}).to_dict(orient='records')
+    )
+    # Replace outer double quotes with single quotes, but keep inner ones
+    # Trick: use regex to only replace outer ones
+    import re
+    fixed = re.sub(r'"([^"]*?)"\s*:', r"'\1':", json_str)  # keys
+    fixed = re.sub(r':\s*"((?:[^\"\\]|\\.)*?)"', r": '\1'", fixed)  # string values
+    return fixed
 def translate_json(text_json, target, source = 'English', source_col = 'Source', target_col= 'Target'):
     llm_model_config = {'temperature': 0.1, 'top_p': 1, 'top_k': 40,
                         'max_output_tokens': 100000000, 'response_mime_type': 'application/json'}
@@ -1096,12 +1106,12 @@ else:
             elif file_extension == "xliff" or file_extension == "mqxliff":
                 output_path = 'Result.xliff'
                 df = mqxliff_to_df(uploaded_file, )
-                json_payload = df_to_json(df)
+                json_payload = df_to_json_single_quotes(df)
                 st.dataframe(df)
             elif file_extension == "sdlxliff":
                 output_path = 'Result.xliff'
                 df = sdlxliff_to_df(uploaded_file)
-                json_payload = df_to_json(df)
+                json_payload = df_to_json_single_quotes(df)
                 st.dataframe(df)
 
             elif file_extension == "xlsx":
