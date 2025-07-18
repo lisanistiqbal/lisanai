@@ -713,9 +713,7 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
                 and the response should be strictly in this format {} and the get the texts from this {}'''.format(source, target,res_schema, text_json)
     response = llm_model.generate_content(prompt)
     print(response)
-    safe_text = re.sub(r'("Source":\s*"|\"translated\":\s*")((?:\\.|[^"\\])*)(?=")', lambda m: m.group(1) + m.group(2).replace('"', "'"),response.text)
-    translated_json = json.loads(safe_text)
-    return data
+    return eval(response.text)
 
 def translate_excel(input_file, source_col_name, target_col_name):
     df = pd.read_excel(input_file)
