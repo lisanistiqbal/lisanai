@@ -717,8 +717,7 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
     # Escape inner quotes that are inside value strings
     fixed = re.sub(r'"(Source|translated)":\s*"([^"]*)"', lambda m: f'"{m.group(1)}": \'{m.group(2)}\'', raw)    
     print(fixed)
-    data = json.loads(fixed)
-    return data
+    return eval(fixed)
 
 def translate_excel(input_file, source_col_name, target_col_name):
     df = pd.read_excel(input_file)
