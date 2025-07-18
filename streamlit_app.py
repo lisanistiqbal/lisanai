@@ -726,6 +726,20 @@ def translate_json(text_json, target, source = 'English', source_col = 'Source',
     print(raw)
     return eval(raw)
 
+def batch_translate_df(df, source_lang, target_lang, batch_size=100, delay=2):
+    result_df = pd.DataFrame()
+
+    for i in range(0, len(df), batch_size):
+        batch = df.iloc[i:i+batch_size]
+        json_payload = df_to_json_single_quotes(batch)
+        translated_json = translate_json(json_payload, target_lang, source_lang)
+        batch_result = pd.DataFrame(translated_json)
+        result_df = pd.concat([result_df, batch_result], ignore_index=True)
+        
+        time.sleep(delay)  # Throttle requests to avoid rate limits
+
+    return result_df
+
 def translate_excel(input_file, source_col_name, target_col_name):
     df = pd.read_excel(input_file)
     json_payload = df_to_json(df)
@@ -1176,8 +1190,11 @@ else:
                     st.download_button("Download Translated File", data=docx_buffer, file_name=f"Translated_{filename}")
 
                 elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff":
-                    translated_json = translate_json(json_payload, target, source)
-                    df_res = pd.DataFrame(translated_json)
+                    if len(df) <= 100:
+                        translated_json = translate_json(json_payload, target, source)
+                        df_res = pd.DataFrame(translated_json)
+                    else:
+                        df_res = batch_translate_df(df, source, target)
                     df_res.rename(columns={'translated': target_col}, inplace=True)
                     st.dataframe(df_res)
                     #df_res.to_excel(result_file, index=False)
