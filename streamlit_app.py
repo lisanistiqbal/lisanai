@@ -701,7 +701,7 @@ def df_to_json(df, source_col = 'source', target_col= 'target'):
 def df_to_json_single_quotes(df, source_col='Source', target_col='Target'):
     # Convert to JSON string with proper escaping
     json_str = json.dumps(
-        df[[source_col]].rename(columns={source_col: 'text'}).to_dict(orient='records')
+        df[source_col].rename(columns={source_col: 'text'}).to_dict(orient='records')
     )
     # Replace outer double quotes with single quotes, but keep inner ones
     # Trick: use regex to only replace outer ones
