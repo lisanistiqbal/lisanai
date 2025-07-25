@@ -1134,8 +1134,8 @@ else:
                 st.dataframe(df)
 
             elif file_extension == "xlsx":
-                df = pd.read_excel(uploaded_file, sheet_name=None)  # Load all sheets
-                #st.dataframe(df)
+                df = pd.read_excel(uploaded_file)  # Load all sheets
+                st.dataframe(df)
                 json_payload = df_to_json_single_quotes(df)
 
             elif file_extension == "pdf":
