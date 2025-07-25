@@ -1135,12 +1135,8 @@ else:
 
             elif file_extension == "xlsx":
                 df = pd.read_excel(uploaded_file, sheet_name=None)  # Load all sheets
-                text_data = []
-                for sheet_name, sheet in df.items():
-                    #text_data.append(f"Sheet: {sheet_name}")
-                    text_data.append(sheet.to_string(index=False))
-                text = "\n".join(text_data)
                 st.dataframe(df)
+                json_payload = df_to_json_single_quotes(df)
 
             elif file_extension == "pdf":
                 # Read PDF file
@@ -1177,12 +1173,25 @@ else:
                     st.download_button("Download Translated File", data=translated_text, file_name=f"Translated_{filename}")
                 elif file_extension == "xlsx":
                     df = pd.DataFrame([translated_text.split("\n")])  # Convert text to DataFrame
-                    xlsx_buffer = BytesIO()
-                    with pd.ExcelWriter(xlsx_buffer, engine="xlsxwriter") as writer:
-                        df.to_excel(writer, sheet_name="Translated", index=False)
-                    xlsx_buffer.seek(0)
-                    st.download_button("Download Translated File", data=xlsx_buffer, file_name=f"Translated_{filename}")
-
+                    if len(df) <= 100:
+                        translated_json = translate_json(json_payload, target, source)
+                        df_res = pd.DataFrame(translated_json)
+                    else:
+                        df_res = batch_translate_df(df, source, target)
+                    df_res.rename(columns={'translated': target_col}, inplace=True)
+                    st.dataframe(df_res)
+                    buffer = BytesIO()
+                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                        df_res.to_excel(writer, index=False)
+                        writer.save()
+                    
+                    # Create download button
+                    st.download_button(
+                        label="📥 Download Excel",
+                        data=buffer.getvalue(),
+                        file_name="Result.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
                 elif file_extension == "docx":
                     # Save as DOCX file
                     translated_doc = docx.Document()
