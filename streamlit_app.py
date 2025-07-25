@@ -1178,7 +1178,7 @@ else:
                     # Save as text file
                     st.download_button("Download Translated File", data=translated_text, file_name=f"Translated_{filename}")
                 elif file_extension == "xlsx":
-                    if len(df) <= 100:
+                    if len(df) <= 200:
                         translated_json = translate_json(json_payload, target, source)
                         df_res = pd.DataFrame(translated_json)
                     else:
