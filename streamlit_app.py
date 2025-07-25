@@ -477,6 +477,12 @@ def generate(text, src, trg, llm_model, tone='formal', domain='Healthcare', inst
 
     return responses.candidates[0].content.parts[0].text
 
+def convert_df_to_excel(df):
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    return buffer.getvalue()  # return raw binary for download
+
 def translate_text(text, src, trg, llm_model, tone, domain, instruction, mandatory_translations = 'None'):
 
     # Stronger Prompt Template
@@ -1179,15 +1185,13 @@ else:
                         df_res = batch_translate_df(df, source, target)
                     df_res.rename(columns={'translated': target_col}, inplace=True)
                     st.dataframe(df_res)
-                    buffer = BytesIO()
-                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                        df_res.to_excel(writer, index=False)
-                        writer.save()
+                    
+                    excel_data = convert_df_to_excel(df_res)
                     
                     # Create download button
                     st.download_button(
-                        label="📥 Download Excel",
-                        data=buffer.getvalue(),
+                        label="📥 Download as Excel",
+                        data=excel_data,
                         file_name="Result.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
