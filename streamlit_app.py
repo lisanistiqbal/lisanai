@@ -691,7 +691,7 @@ def load_lottieurl(url: str):
         return None
     return r.json()
 
-def df_to_json(df, source_col = 'source', target_col= 'target'):
+def df_to_json(df, source_col = 'Source', target_col= 'Target'):
     return df[[source_col]].rename(columns={source_col: 'text'}).to_dict(orient='records')
 
 #def df_to_json(df, source_col="source"):
@@ -1136,7 +1136,7 @@ else:
             elif file_extension == "xlsx":
                 df = pd.read_excel(uploaded_file)  # Load all sheets
                 st.dataframe(df)
-                json_payload = df_to_json_single_quotes(df)
+                json_payload = df_to_json(df, source_col, target_col)
 
             elif file_extension == "pdf":
                 # Read PDF file
