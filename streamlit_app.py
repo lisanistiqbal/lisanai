@@ -760,7 +760,7 @@ def batch_translate_df(df, source, target, tone, domain, instruction, mandatory_
 
     for i in range(0, len(df), batch_size):
         batch = df.iloc[i:i+batch_size]
-        json_payload = df_to_json_single_quotes(batch)
+        json_payload = df_to_json_single_quotes(df, source_col, target_col)
         translated_json = translate_json(json_payload, target, source, tone, domain, instruction, mandatory_translations, source_col, target_col)
         batch_result = pd.DataFrame(translated_json)
         result_df = pd.concat([result_df, batch_result], ignore_index=True)
@@ -1149,18 +1149,18 @@ else:
             elif file_extension == "xliff" or file_extension == "mqxliff":
                 output_path = 'Result.xliff'
                 df = mqxliff_to_df(uploaded_file, )
-                json_payload = df_to_json(df)
+                json_payload = df_to_json_single_quotes(df, source_col, target_col)
                 st.dataframe(df)
             elif file_extension == "sdlxliff":
                 output_path = 'Result.xliff'
                 df = sdlxliff_to_df(uploaded_file)
-                json_payload = df_to_json_single_quotes(df)
+                json_payload = df_to_json_single_quotes(df, source_col, target_col)
                 st.dataframe(df)
 
             elif file_extension == "xlsx":
                 df = pd.read_excel(uploaded_file)  # Load all sheets
                 st.dataframe(df)
-                json_payload = df_to_json(df, source_col, target_col)
+                json_payload = df_to_json_single_quotes(df, source_col, target_col)
 
             elif file_extension == "pdf":
                 # Read PDF file
