@@ -715,35 +715,53 @@ def df_to_json_single_quotes(df, source_col='Source', target_col='Target'):
     fixed = re.sub(r'"([^"]*?)"\s*:', r"'\1':", json_str)  # keys
     fixed = re.sub(r':\s*"((?:[^\"\\]|\\.)*?)"', r": '\1'", fixed)  # string values
     return fixed
-def translate_json(text_json, target, source = 'English', source_col = 'Source', target_col= 'Target'):
+def translate_json(text_json, target, source, tone, domain, instruction, mandatory_translations = 'None', source_col = 'Source', target_col= 'Target'):
     llm_model_config = {'temperature': 0.1, 'top_p': 1, 'top_k': 40,
                         'max_output_tokens': 100000000, 'response_mime_type': 'application/json'}
     llm_model = genai.GenerativeModel(model_name = 'gemini-2.0-flash', generation_config = llm_model_config)
 
     res_schema = '''[{{
                 '{}': 'string, required — the same as in the input',
-                translated': 'string, required — the translated version of the "text" field',
+                '{}': 'string, required — the translated version of the "text" field',
                 '{}': 'string, required — the same as in the input',
-                'translated': 'empty string, if teh text is null or empty',
+                '{}': 'empty string, if teh text is null or empty',
                 .
                 .
-                }}]'''.format(source_col, source_col)
+                }}]'''.format(source_col, target_col, source_col, target_col)
+    prompt = '''You are an expert Translator create by Lisan India. Your task is to translate texts **from {} to {}** accurately with correct writing diraection (RTL or LTR). 
+                The text belongs to the **{}** domain and should be translated in a **{}** tone.
 
-    prompt = '''You are an expert Translator. Your task is to translate texts *from {} to {}* accurately with correct writing direction (RTL or LTR).
-                The text belongs to the general domain and should be translated in a Formal tone.
-                and the response should be strictly in this format {} and the get the texts from this {}'''.format(source, target,res_schema, text_json)
+                ### **Important Instructions:**
+                1. **Strictly use the provided mandatory translations** if 1st word is from {} language and other is in {} language.
+                2. **Do not modify** words that are replaced based on the dictionary.
+                3. **Ensure smooth, natural readability** while keeping accuracy.
+
+
+                ### **Mandatory Translations (Do not modify these words):**  
+                {}
+
+                ### **Instruction:**  
+                {}
+                
+                ##Response Schema - the response should be strictly in this format 
+                {} 
+                ### **Text to Translate:**  
+                {}
+                ### **Your Translation:**  
+                '''.format(source, target, domain, tone, source, target, mandatory_translations, instruction, res_schema, text_json)
+    
     response = llm_model.generate_content(prompt)
     raw = response.text
     print(raw)
     return eval(raw)
 
-def batch_translate_df(df, source_lang, target_lang, batch_size=40, delay=1):
+def batch_translate_df(df, source, target, tone, domain, instruction, mandatory_translations, source_col, target_col, batch_size=40, delay=1):
     result_df = pd.DataFrame()
 
     for i in range(0, len(df), batch_size):
         batch = df.iloc[i:i+batch_size]
         json_payload = df_to_json_single_quotes(batch)
-        translated_json = translate_json(json_payload, target_lang, source_lang)
+        translated_json = translate_json(json_payload, target, source, tone, domain, instruction, mandatory_translations, source_col, target_col)
         batch_result = pd.DataFrame(translated_json)
         result_df = pd.concat([result_df, batch_result], ignore_index=True)
         
@@ -1179,11 +1197,11 @@ else:
                     st.download_button("Download Translated File", data=translated_text, file_name=f"Translated_{filename}")
                 elif file_extension == "xlsx":
                     if len(df) <= 200:
-                        translated_json = translate_json(json_payload, target, source)
+                        translated_json = translate_json(json_payload, target, source, tone, domain, instruction, mandatory_translations, source_col, target_col)
                         df_res = pd.DataFrame(translated_json)
                     else:
                         df_res = batch_translate_df(df, source, target)
-                    df_res.rename(columns={'translated': target_col}, inplace=True)
+                    #df_res.rename(columns={'translated': target_col}, inplace=True)
                     st.dataframe(df_res)
                     
                     excel_data = convert_df_to_excel(df_res)
@@ -1208,11 +1226,11 @@ else:
 
                 elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff":
                     if len(df) <= 100:
-                        translated_json = translate_json(json_payload, target, source)
+                        translated_json = translate_json(json_payload, target, source, tone, domain, instruction, mandatory_translations, source_col, target_col)
                         df_res = pd.DataFrame(translated_json)
                     else:
-                        df_res = batch_translate_df(df, source, target)
-                    df_res.rename(columns={'translated': target_col}, inplace=True)
+                        df_res = batch_translate_df(df, source, target, tone, domain, instruction, mandatory_translations, source_col, target_col)
+                    #df_res.rename(columns={'translated': target_col}, inplace=True)
                     st.dataframe(df_res)
                     #df_res.to_excel(result_file, index=False)
                     df_res["ID"] = df_res.index.astype(str) 
