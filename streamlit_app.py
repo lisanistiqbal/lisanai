@@ -761,7 +761,6 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
 
 def batch_translate_df(df, source, target, tone, domain, instruction, mandatory_translations, source_col, target_col, batch_size=40, delay=1):
     result_df = pd.DataFrame()
-
     for i in range(0, len(df), batch_size):
         batch = df.iloc[i:i+batch_size]
         json_payload = df_to_json_single_quotes(df, source_col, target_col)
@@ -1200,7 +1199,7 @@ else:
                     # Save as text file
                     st.download_button("Download Translated File", data=translated_text, file_name=f"Translated_{filename}")
                 elif file_extension == "xlsx":
-                    if len(df) <= 100:
+                    if len(df) <= 75:
                         translated_json = translate_json(json_payload, target, source, tone, domain, instruction, mandatory_translations, source_col, target_col)
                         df_res = pd.DataFrame(translated_json)
                     else:
