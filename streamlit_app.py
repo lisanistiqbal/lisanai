@@ -1204,7 +1204,7 @@ else:
                         translated_json = translate_json(json_payload, target, source, tone, domain, instruction, mandatory_translations, source_col, target_col)
                         df_res = pd.DataFrame(translated_json)
                     else:
-                        df_res = batch_translate_df(df, source, target)
+                        df_res = batch_translate_df(df, source, target, tone, domain, instruction, mandatory_translations, source_col, target_col)
                     #df_res.rename(columns={'translated': target_col}, inplace=True)
                     st.dataframe(df_res)
                     
