@@ -764,7 +764,7 @@ def batch_translate_df(df, source, target, tone, domain, instruction, mandatory_
 
     for i in range(0, len(df), batch_size):
         batch = df.iloc[i:i+batch_size]
-        json_payload = df_to_json(df, source_col, target_col)
+        json_payload = df_to_json_single_quotes(df, source_col, target_col)
         translated_json = translate_json(json_payload, target, source, tone, domain, instruction, mandatory_translations, source_col, target_col)
         batch_result = pd.DataFrame(translated_json)
         result_df = pd.concat([result_df, batch_result], ignore_index=True)
