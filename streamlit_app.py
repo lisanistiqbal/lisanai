@@ -1197,7 +1197,7 @@ else:
                     # Save as text file
                     st.download_button("Download Translated File", data=translated_text, file_name=f"Translated_{filename}")
                 elif file_extension == "xlsx":
-                    if len(df) <= 75:
+                    if len(df_excel) <= 75:
                         json_payload = df_to_json_single_quotes(df_excel, source_col, target_col)
                         translated_json = translate_json(json_payload, target, source, tone, domain, instruction, mandatory_translations, source_col, target_col)
                         df_res = pd.DataFrame(translated_json)
