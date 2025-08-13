@@ -26,6 +26,10 @@ import streamlit_authenticator as stauth
 from docx import Document
 from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P 
+import polib
+import subprocess
+import time
+from lxml import etree
 
 # --- USER AUTHENTICATION ---
 names = ["Asif Iqbal", "Sadullah Saad", "Faheem Ahmad"]
@@ -719,6 +723,8 @@ def df_to_json_single_quotes(df, source_col='Source', target_col='Target'):
     fixed = re.sub(r'"([^"]*?)"\s*:', r"'\1':", json_str)  # keys
     fixed = re.sub(r':\s*"((?:[^\"\\]|\\.)*?)"', r": '\1'", fixed)  # string values
     return fixed'''
+
+
 def translate_json(text_json, target, source, tone, domain, instruction, mandatory_translations = 'None', source_col = 'Source', target_col= 'Target'):
     llm_model_config = {'temperature': 0.1, 'top_p': 1, 'top_k': 40,
                         'max_output_tokens': 100000000, 'response_mime_type': 'application/json'}
@@ -728,11 +734,11 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
                 '{}': 'string, required — the same as in the input',
                 '{}': 'string, required — the translated version of the "text" field',
                 '{}': 'string, required — the same as in the input',
-                '{}': 'empty string, if teh text is null or empty',
+                '{}': 'empty string, if the text is null or empty',
                 .
                 .
                 }}]'''.format(source_col, target_col, source_col, target_col)
-    prompt = '''You are an expert Translator create by Lisan India. Your task is to translate texts **from {} to {}** accurately with correct writing diraection (RTL or LTR). 
+    prompt = '''You are an expert Translator created by Lisan India. Your task is to translate texts **from {} to {}** accurately with correct writing diraection (RTL or LTR).
                 The text belongs to the **{}** domain and should be translated in a **{}** tone.
 
                 ### **Important Instructions:**
@@ -741,25 +747,37 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
                 3. **Ensure smooth, natural readability** while keeping accuracy.
 
 
-                ### **Mandatory Translations (Do not modify these words):**  
+                ### **Mandatory Translations (Do not modify these words):**
                 {}
 
-                ### **Instruction:**  
+                ### **Instruction:**
                 {}
-                
-                ##Response Schema - the response should be strictly in this format 
-                {} 
-                ### **Text to Translate:**  
+
+                ##Response Schema - the response should be strictly in this format
                 {}
-                ### **Your Translation:**  
+                ### **Text to Translate:**
+                {}
+                ### **Your Translation:**
                 '''.format(source, target, domain, tone, source, target, mandatory_translations, instruction, res_schema, text_json)
-    
+
     response = llm_model.generate_content(prompt)
     raw = response.text
-    print(raw)
-    return eval(raw)
+    # Ensure the raw response is treated as a string before regex
+    json_str = eval(raw)
 
-def batch_translate_df(df, source, target, tone, domain, instruction, mandatory_translations, source_col, target_col, batch_size=40, delay=2):
+
+    return json_str # Return as a list of dictionaries
+
+def batch_translate_json(json_payload, source, target, tone, domain, instruction, mandatory_translations,  batch_size=50, delay=2):
+    result = []
+    for i in range(0, len(json_payload), batch_size):
+        batch = json_payload[i:i+batch_size]
+        translated_batch = translate_json(batch, target, source, tone, domain, instruction, mandatory_translations)
+        result.extend(translated_batch)
+        time.sleep(delay)  # Throttle to avoid rate limits
+    return result
+
+def batch_translate_df(df, source, target, tone, domain, instruction, mandatory_translations, source_col, target_col, batch_size=50, delay=2):
     result_df = pd.DataFrame()
     for i in range(0, len(df), batch_size):
         batch = df.iloc[i:i+batch_size]
@@ -771,6 +789,114 @@ def batch_translate_df(df, source, target, tone, domain, instruction, mandatory_
         time.sleep(delay)  # Throttle requests to avoid rate limits
 
     return result_df
+
+def inject_translations_to_xliff(original_path, po_path = 'result.po'):
+    base, ext = os.path.splitext(original_path)
+    output_path =  f"{base}_result{ext}"
+    
+    #Load translations from .po file
+    po = polib.pofile(po_path)
+    translations = {entry.msgid.strip(): entry.msgstr.strip() for entry in po if entry.msgstr.strip()}
+
+    parser = etree.XMLParser(remove_blank_text=False)
+    tree = etree.parse(original_path, parser)
+    root = tree.getroot()
+
+    # Build namespace map with default namespace assigned to 'ns'
+    nsmap = {}
+    if None in root.nsmap:
+        nsmap['ns'] = root.nsmap[None]  # assign default ns to 'ns'
+    for k, v in root.nsmap.items():
+        if k:  # keep named prefixes
+            nsmap[k] = v
+
+    # Find all trans-units
+    trans_units = root.xpath('//ns:trans-unit' if 'ns' in nsmap else '//trans-unit', namespaces=nsmap)
+
+    for tu in trans_units:
+        source_elem = tu.find('.//ns:source' if 'ns' in nsmap else './/source', namespaces=nsmap)
+        target_elem = tu.find('.//ns:target' if 'ns' in nsmap else './/target', namespaces=nsmap)
+
+        if source_elem is not None:
+            source_text = (source_elem.text or "").strip()
+            if source_text in translations:
+                if target_elem is None:
+                    # Create target in correct namespace if needed
+                    target_tag = '{%s}target' % nsmap.get('ns', '') if 'ns' in nsmap else 'target'
+                    target_elem = etree.SubElement(tu, target_tag)
+                target_elem.text = translations[source_text]
+
+    # Save output in same format as original
+    tree.write(output_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
+    print(f"[OK] Injected translations into: {output_path} ({os.path.splitext(output_path)[1]})")
+    return output_path
+
+def json_to_po(translated_list, original_po_path = 'cleaned.po', output_po_path = 'result.po'):
+    # Convert your list of dicts to a lookup dict for fast access
+    translation_map = {item["Source"]: item["Target"] for item in translated_list}
+
+    po = polib.pofile(original_po_path)
+
+    for entry in po:
+        src = entry.msgid.strip()
+        if src in translation_map:
+            entry.msgstr = translation_map[src] or ""  # assign translated text
+
+    po.save(output_po_path)
+    print(f"[DONE] Saved translated PO file: {output_po_path}")
+
+def po_to_json_payload(po_path = 'cleaned.po'):
+    po = polib.pofile(po_path)
+
+    # Build list of dicts
+    data = []
+    for entry in po:
+        if entry.msgid.strip():  # skip empty
+            data.append({"text": entry.msgid.strip()})
+
+    # Return JSON string like your Excel function
+    return repr(data)
+
+def convert_to_po(po_path='cleaned.po', xliff_path = 'cleaned.xliff'):
+    # Convert to PO
+    result = subprocess.run(
+        ["xliff2po", xliff_path, po_path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    print(result.stdout)
+    if result.returncode != 0:
+        print("[ERROR] Conversion failed:\n", result.stderr)
+    else:
+        print(f"[SUCCESS] Converted to: {po_path}")
+
+
+def clean_custom_xliff(input_path, output_path = 'cleaned.xliff'):
+    """
+    Cleans vendor-specific XLIFF formats (SDLXLIFF, MQXLIFF, etc.) into plain XLIFF.
+    Removes namespaces, vendor-specific attributes, and extra metadata.
+    """
+    parser = etree.XMLParser(remove_blank_text=True)
+    tree = etree.parse(input_path, parser)
+    root = tree.getroot()
+
+    # Remove namespaces
+    for elem in root.iter():
+        if not hasattr(elem.tag, 'find'):
+            continue
+        i = elem.tag.find('}')
+        if i >= 0:
+            elem.tag = elem.tag[i+1:]  # Strip namespace
+        # Remove attributes that aren't standard XLIFF attributes
+        elem.attrib.clear()
+
+    etree.cleanup_namespaces(root)
+    # Save clean file
+    tree.write(output_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
+    print(f"[CLEANED] Saved plain XLIFF: {output_path}")
+
+
 
 def translate_excel(input_file, source_col_name, target_col_name):
     df = pd.read_excel(input_file)
@@ -1149,16 +1275,13 @@ else:
                 text = stringio.read()
                 st.write("Extracted Text:", text)
             
-            elif file_extension == "xliff" or file_extension == "mqxliff":
-                output_path = 'Result.xliff'
-                df = mqxliff_to_df(uploaded_file, )
-                json_payload = df_to_json_single_quotes(df, source_col, target_col)
-                st.dataframe(df)
-            elif file_extension == "sdlxliff":
-                output_path = 'Result.xliff'
-                df = sdlxliff_to_df(uploaded_file)
-                json_payload = df_to_json_single_quotes(df, source_col, target_col)
-                st.dataframe(df)
+            elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff" or file_extension == "mxliff"  :
+                input_path = uploaded_file
+                clean_custom_xliff(input_path)
+                convert_to_po()
+                json_payload = po_to_json_payload()
+                text_json = eval(json_payload)
+
 
             elif file_extension == "xlsx":
                 df_excel = pd.read_excel(uploaded_file)  # Load all sheets
@@ -1226,18 +1349,14 @@ else:
                     docx_buffer.seek(0)
                     st.download_button("Download Translated File", data=docx_buffer, file_name=f"Translated_{filename}")
 
-                elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff":
-                    if len(df) <= 100:
-                        translated_json = translate_json(json_payload, target, source, tone, domain, instruction, mandatory_translations, source_col, target_col)
-                        df_res = pd.DataFrame(translated_json)
+                elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff" or file_extension == "mxliff":
+                    if len(text_json)> 50:
+                        result = batch_translate_json(text_json, source, target, tone, domain, instruction, mandatory_translations)
                     else:
-                        df_res = batch_translate_df(df, source, target, tone, domain, instruction, mandatory_translations, source_col, target_col)
-                    #df_res.rename(columns={'translated': target_col}, inplace=True)
-                    st.dataframe(df_res)
-                    #df_res.to_excel(result_file, index=False)
-                    df_res["ID"] = df_res.index.astype(str) 
-                    df_res.to_excel('result.xlsx')
-                    xliff_file = df_to_xliff(df_res, uploaded_file, output_path)
+                        result = translate_json(text_json, target, source, tone, domain, instruction, mandatory_translations)
+                    json_to_po(result)
+                    output_path = inject_translations_to_xliff(input_path)
+                    
                     with open(output_path, "rb") as f:
                         xliff_data = f.read()
 
@@ -1252,7 +1371,7 @@ else:
                     # **Exception:** Save as TXT instead of PDF
                     st.download_button("Download Translated File (TXT format)", data=translated_text, file_name=f"Translated_{filename}.txt")
 
-                
+    
             
                     
             #Can be used wherever a "file-like" object is accepted:
@@ -1315,4 +1434,5 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
