@@ -108,10 +108,12 @@ threadpoolctl==3.5.0
 toml==0.10.2
 tornado==6.4.2
 tqdm==4.67.1
+translate-toolkit==3.15.6
 typing_extensions==4.12.2
 tzdata==2024.2
 uritemplate==4.1.1
 urllib3==2.3.0
 watchdog==6.0.0
 XlsxWriter==3.2.2
+
 
