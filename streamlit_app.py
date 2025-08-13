@@ -790,7 +790,8 @@ def batch_translate_df(df, source, target, tone, domain, instruction, mandatory_
 
     return result_df
 
-def inject_translations_to_xliff(original_path, po_path = 'result.po'):
+def inject_translations_to_xliff(input_path, po_path = 'result.po'):
+    original_path = str(input_path)
     base, ext = os.path.splitext(original_path)
     output_path =  f"{base}_result{ext}"
     
@@ -1434,6 +1435,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
