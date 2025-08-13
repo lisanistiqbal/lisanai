@@ -65,6 +65,7 @@ packaging==24.2
 pandas==2.2.3
 pillow==11.0.0
 platformdirs==4.3.6
+polib==1.2.0
 pooch==1.8.2
 proto-plus==1.25.0
 protobuf==5.29.2
@@ -113,3 +114,4 @@ uritemplate==4.1.1
 urllib3==2.3.0
 watchdog==6.0.0
 XlsxWriter==3.2.2
+
