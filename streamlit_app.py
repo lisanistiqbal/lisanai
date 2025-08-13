@@ -30,6 +30,7 @@ import polib
 import subprocess
 import time
 from lxml import etree
+import tempfile
 
 # --- USER AUTHENTICATION ---
 names = ["Asif Iqbal", "Sadullah Saad", "Faheem Ahmad"]
@@ -790,28 +791,37 @@ def batch_translate_df(df, source, target, tone, domain, instruction, mandatory_
 
     return result_df
 
-def inject_translations_to_xliff(input_path, po_path = 'result.po'):
-    original_path = str(input_path)
+def inject_translations_to_xliff(uploaded_file, po_path='result.po'):
+    # If it's an UploadedFile, save it to temp
+    if hasattr(uploaded_file, "read"):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
+            tmp.write(uploaded_file.read())
+            original_path = tmp.name
+    else:
+        # Assume it's already a filesystem path
+        original_path = uploaded_file
+
     base, ext = os.path.splitext(original_path)
-    output_path =  f"{base}_result{ext}"
-    
-    #Load translations from .po file
+    output_path = f"{base}_result{ext}"
+
+    # Load translations
     po = polib.pofile(po_path)
-    translations = {entry.msgid.strip(): entry.msgstr.strip() for entry in po if entry.msgstr.strip()}
+    translations = {
+        entry.msgid.strip(): entry.msgstr.strip()
+        for entry in po if entry.msgstr.strip()
+    }
 
     parser = etree.XMLParser(remove_blank_text=False)
     tree = etree.parse(original_path, parser)
     root = tree.getroot()
 
-    # Build namespace map with default namespace assigned to 'ns'
     nsmap = {}
     if None in root.nsmap:
-        nsmap['ns'] = root.nsmap[None]  # assign default ns to 'ns'
+        nsmap['ns'] = root.nsmap[None]
     for k, v in root.nsmap.items():
-        if k:  # keep named prefixes
+        if k:
             nsmap[k] = v
 
-    # Find all trans-units
     trans_units = root.xpath('//ns:trans-unit' if 'ns' in nsmap else '//trans-unit', namespaces=nsmap)
 
     for tu in trans_units:
@@ -822,16 +832,13 @@ def inject_translations_to_xliff(input_path, po_path = 'result.po'):
             source_text = (source_elem.text or "").strip()
             if source_text in translations:
                 if target_elem is None:
-                    # Create target in correct namespace if needed
                     target_tag = '{%s}target' % nsmap.get('ns', '') if 'ns' in nsmap else 'target'
                     target_elem = etree.SubElement(tu, target_tag)
                 target_elem.text = translations[source_text]
 
-    # Save output in same format as original
     tree.write(output_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
-    print(f"[OK] Injected translations into: {output_path} ({os.path.splitext(output_path)[1]})")
+    print(f"[OK] Injected translations into: {output_path}")
     return output_path
-
 def json_to_po(translated_list, original_po_path = 'cleaned.po', output_po_path = 'result.po'):
     # Convert your list of dicts to a lookup dict for fast access
     translation_map = {item["Source"]: item["Target"] for item in translated_list}
