@@ -1261,7 +1261,7 @@ else:
     on = st.toggle("Text File")
 
     if on:
-        uploaded_file = st.file_uploader("Upload a file", type=["txt", "xlsx","csv", "pdf", "docx", "xliff", "mqxliff", "sdlxliff"])
+        uploaded_file = st.file_uploader("Upload a file", type=["txt", "xlsx","csv", "pdf", "docx", "xliff", "mqxliff", "sdlxliff", "mxliff"])
         source_col = st.text_area("Source Column Name", 'Source')
         target_col = st.text_area("Target Column Name", 'Target')
 
@@ -1434,5 +1434,6 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
