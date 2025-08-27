@@ -1041,6 +1041,7 @@ else:
         "Crimean Tatar": "crh",
         "Croatian": "hr",
         "Czech": "cs",
+        "Dari": "Dari",
         "Danish": "da",
         "Dinka": "din",
         "Divehi": "dv",
@@ -1200,7 +1201,7 @@ else:
 
     llm_model =st.selectbox(
             "Model Selection",
-            ("gemini-2.0-flash", "gemini-1.5-flash-002", "gemini-1.5-pro-002"),
+            ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-002", "gemini-1.5-pro-002"),
             index=0
         )
     # Layout with columns
@@ -1442,6 +1443,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
