@@ -109,7 +109,7 @@ safety_settings = [
 
 def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='result.po'):
     translation_map = {}
-    translated_list = ast.literal_eval(translated_list)
+    #translated_list = ast.literal_eval(translated_list)
 
     for item in translated_list:
         raw_src = item["Source"]
@@ -1492,6 +1492,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
