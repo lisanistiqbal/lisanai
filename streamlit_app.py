@@ -110,47 +110,42 @@ safety_settings = [
 def auto_fix_json(raw_json):
     """
     Automatically detect and fix common JSON issues
-    Returns the parsed JSON data or raises an exception with details
+    Returns the parsed JSON data as a list of dictionaries
     """
     original = raw_json
     fixed = raw_json
     
     try:
         # Try parsing original first
-        return json.loads(raw_json)
+        result = json.loads(raw_json)
+        # Ensure it's always a list
+        if isinstance(result, dict):
+            result = [result]
+        return result
     except json.JSONDecodeError as e:
         print(f"JSON Error detected: {e}")
-        print(f"Position: line {e.lineno}, column {e.colno}")
         
-        # Apply fixes in order of most common issues
-        
+        # Apply fixes in order
         # Fix 1: Remove trailing commas
         fixed = re.sub(r',(\s*[}\]])', r'\1', fixed)
         
         # Fix 2: Escape unescaped quotes in string values
-        # This handles quotes that are inside string values but not escaped
         lines = fixed.split('\n')
         fixed_lines = []
         
         for line in lines:
-            # Look for patterns like "Target": "text with "unescaped" quotes"
             if '"Target":' in line or '"Source":' in line:
-                # Find the value part after the colon
                 colon_pos = line.find(':')
                 if colon_pos != -1:
                     key_part = line[:colon_pos + 1]
                     value_part = line[colon_pos + 1:].strip()
                     
-                    # If value starts and ends with quotes, fix internal quotes
                     if value_part.startswith('"') and value_part.rstrip(',').endswith('"'):
-                        # Remove outer quotes temporarily
                         inner_value = value_part[1:value_part.rstrip(',').rfind('"')]
-                        # Escape any unescaped quotes in the inner value
-                        inner_value = inner_value.replace('\\"', '___ESCAPED_QUOTE___')  # Preserve already escaped
-                        inner_value = inner_value.replace('"', '\\"')  # Escape unescaped quotes
-                        inner_value = inner_value.replace('___ESCAPED_QUOTE___', '\\"')  # Restore escaped quotes
+                        inner_value = inner_value.replace('\\"', '___ESCAPED_QUOTE___')
+                        inner_value = inner_value.replace('"', '\\"')
+                        inner_value = inner_value.replace('___ESCAPED_QUOTE___', '\\"')
                         
-                        # Reconstruct the line
                         ending = ',' if value_part.rstrip().endswith(',') else ''
                         value_part = f'"{inner_value}"{ending}'
                     
@@ -160,63 +155,29 @@ def auto_fix_json(raw_json):
         
         fixed = '\n'.join(fixed_lines)
         
-        # Fix 3: Handle malformed quote patterns
-        # Fix quotes at the beginning of values that might be malformed
+        # Fix 3: More aggressive quote fixes
         fixed = re.sub(r':\s*"\{([^}]*)\}([^"]*)"([^",\n]*)"', r': "{\1}\2\3"', fixed)
-        
-        # Fix 4: Handle specific patterns from your data
-        # Fix the pattern where quotes appear after closing braces
         fixed = re.sub(r'(<[ib]>)"([^"]*)"([^"]*<[ib]>)', r'\1\2\3', fixed)
-        
-        # Fix 5: Clean up any remaining quote issues
-        # Replace sequences of multiple quotes with properly escaped quotes
         fixed = re.sub(r'"""', r'\\"', fixed)
         fixed = re.sub(r'""(?!")', r'\\"', fixed)
+        fixed = re.sub(r'"([^"]*)"([^",\n}]+)"', r'"\1\2"', fixed)
         
-        # Try parsing after each fix
         try:
             result = json.loads(fixed)
             print("✅ JSON fixed successfully!")
+            # Ensure it's always a list
+            if isinstance(result, dict):
+                result = [result]
             return result
         except json.JSONDecodeError as e2:
-            print(f"Still have error after basic fixes: {e2}")
-            
-            # More aggressive fixes
-            # Fix 6: Handle the specific error pattern in your data
-            # Look for problematic patterns around the error position
-            error_pos = e2.pos
-            context_start = max(0, error_pos - 100)
-            context_end = min(len(fixed), error_pos + 100)
-            context = fixed[context_start:context_end]
-            
-            print(f"Error context: {context}")
-            
-            # Fix specific patterns that cause issues
-            # Pattern: "text"more text" -> "text more text"
-            fixed = re.sub(r'"([^"]*)"([^",\n}]+)"', r'"\1\2"', fixed)
-            
-            # Pattern: Fix quotes that break JSON structure
-            fixed = re.sub(r'}\s*"([^"]*)"([^{]*){', r'}, "\1\2": {', fixed)
-            
-            try:
-                result = json.loads(fixed)
-                print("✅ JSON fixed with aggressive fixes!")
-                return result
-            except json.JSONDecodeError as e3:
-                print(f"❌ Cannot auto-fix this JSON. Error: {e3}")
-                
-                # Last resort: try to extract valid objects manually
-                print("Attempting to extract valid JSON objects...")
-                return extract_valid_objects(fixed)
+            print(f"❌ Cannot auto-fix this JSON. Error: {e2}")
+            # Last resort: extract valid objects
+            return extract_valid_objects(fixed)
 
 def extract_valid_objects(broken_json):
-    """
-    Extract valid JSON objects from broken JSON
-    """
-    # Split by lines and try to reconstruct valid objects
+    """Extract valid JSON objects from broken JSON"""
     lines = broken_json.strip().split('\n')
     
-    # Remove the outer array brackets if present
     if lines[0].strip() == '[':
         lines = lines[1:]
     if lines[-1].strip() == ']':
@@ -234,23 +195,87 @@ def extract_valid_objects(broken_json):
         current_obj_lines.append(line.rstrip(','))
         brace_count += line.count('{') - line.count('}')
         
-        # When braces are balanced, we have a complete object
         if brace_count == 0 and current_obj_lines:
             obj_str = '\n'.join(current_obj_lines)
             try:
                 obj = json.loads(obj_str)
                 objects.append(obj)
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Skipping invalid object: {obj_str[:50]}...")
-            
+            except json.JSONDecodeError:
+                pass
             current_obj_lines = []
     
     if not objects:
         raise ValueError("Could not extract any valid JSON objects")
     
-    print(f"✅ Extracted {len(objects)} valid objects from broken JSON")
+    print(f"✅ Extracted {len(objects)} valid objects")
     return objects
 
+def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='result.po'):
+    """Convert JSON to PO file with automatic data type handling"""
+    import polib
+    
+    # Handle different input types
+    if isinstance(translated_list, str):
+        try:
+            translated_list = json.loads(translated_list)
+        except json.JSONDecodeError:
+            print("❌ Input is string but not valid JSON")
+            return
+    
+    if isinstance(translated_list, dict):
+        translated_list = [translated_list]
+    
+    if not isinstance(translated_list, list):
+        print(f"❌ Invalid input type: {type(translated_list)}")
+        return
+    
+    print(f"Processing {len(translated_list)} items...")
+    
+    # Build translation map
+    translation_map = {}
+    for i, item in enumerate(translated_list):
+        if not isinstance(item, dict):
+            print(f"⚠️ Skipping item {i}: not a dictionary")
+            continue
+            
+        if "Source" not in item or "Target" not in item:
+            print(f"⚠️ Skipping item {i}: missing Source/Target")
+            continue
+        
+        source_raw = item["Source"]
+        target_text = item["Target"]
+        
+        # Extract text from Source (handle dict strings)
+        if isinstance(source_raw, str) and source_raw.startswith("{'text':"):
+            try:
+                source_dict = ast.literal_eval(source_raw)
+                source_text = source_dict['text']
+            except:
+                source_text = source_raw
+        else:
+            source_text = source_raw
+            
+        translation_map[source_text] = target_text
+    
+    print(f"Built translation map with {len(translation_map)} entries")
+    
+    # Apply to PO file
+    try:
+        po = polib.pofile(original_po_path)
+        translated_count = 0
+        
+        for entry in po:
+            src = entry.msgid.strip()
+            if src in translation_map:
+                entry.msgstr = translation_map[src] or ""
+                translated_count += 1
+        
+        po.save(output_po_path)
+        print(f"✅ Translated {translated_count} entries and saved to {output_po_path}")
+        
+    except Exception as e:
+        print(f"❌ Error processing PO file: {e}")
+        
 def get_prompt(text, src, trg, tone, domain, instruction, mandatory_translations):
     if trg == 'bn':
         prompt = """
@@ -987,31 +1012,6 @@ def inject_translations_to_xliff(uploaded_file, po_path='result.po'):
     tree.write(output_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
     print(f"[OK] Injected translations into: {output_path}")
     return output_path
-def json_to_po(translated_list, original_po_path = 'cleaned.po', output_po_path = 'result.po'):
-    # Extract actual text from Source field
-    translation_map = {}
-    for item in translated_list:
-        source_raw = item["Source"]
-        # Extract text from "{'text': 'actual text'}" format
-        if source_raw.startswith("{'text':"):
-            try:
-                source_dict = ast.literal_eval(source_raw)
-                source_text = source_dict['text']
-            except:
-                source_text = source_raw
-        else:
-            source_text = source_raw
-            
-        translation_map[source_text] = item["Target"]
-    
-    po = polib.pofile(original_po_path)
-    for entry in po:
-        src = entry.msgid.strip()
-        if src in translation_map:
-            entry.msgstr = translation_map[src] or ""
-    
-    po.save(output_po_path)
-    print(f"[DONE] Saved translated PO file: {output_po_path}")
 
 def po_to_json_payload(po_path = 'cleaned.po'):
     po = polib.pofile(po_path)
@@ -1603,6 +1603,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
