@@ -107,108 +107,109 @@ safety_settings = [
     ),
 ]
 
+
 def auto_fix_json(raw_json):
     """
-    Automatically detect and fix common JSON issues
-    Returns the parsed JSON data as a list of dictionaries
+    Robust JSON fixer that handles severely broken JSON
     """
-    original = raw_json
-    fixed = raw_json
-    
     try:
         # Try parsing original first
         result = json.loads(raw_json)
-        # Ensure it's always a list
         if isinstance(result, dict):
             result = [result]
         return result
     except json.JSONDecodeError as e:
-        print(f"JSON Error detected: {e}")
+        print(f"JSON Error: {e}")
+        print(f"Attempting aggressive fixes...")
         
-        # Apply fixes in order
-        # Fix 1: Remove trailing commas
-        fixed = re.sub(r',(\s*[}\]])', r'\1', fixed)
-        
-        # Fix 2: Escape unescaped quotes in string values
-        lines = fixed.split('\n')
-        fixed_lines = []
-        
-        for line in lines:
-            if '"Target":' in line or '"Source":' in line:
-                colon_pos = line.find(':')
-                if colon_pos != -1:
-                    key_part = line[:colon_pos + 1]
-                    value_part = line[colon_pos + 1:].strip()
-                    
-                    if value_part.startswith('"') and value_part.rstrip(',').endswith('"'):
-                        inner_value = value_part[1:value_part.rstrip(',').rfind('"')]
-                        inner_value = inner_value.replace('\\"', '___ESCAPED_QUOTE___')
-                        inner_value = inner_value.replace('"', '\\"')
-                        inner_value = inner_value.replace('___ESCAPED_QUOTE___', '\\"')
-                        
-                        ending = ',' if value_part.rstrip().endswith(',') else ''
-                        value_part = f'"{inner_value}"{ending}'
-                    
-                    line = key_part + ' ' + value_part
-            
-            fixed_lines.append(line)
-        
-        fixed = '\n'.join(fixed_lines)
-        
-        # Fix 3: More aggressive quote fixes
-        fixed = re.sub(r':\s*"\{([^}]*)\}([^"]*)"([^",\n]*)"', r': "{\1}\2\3"', fixed)
-        fixed = re.sub(r'(<[ib]>)"([^"]*)"([^"]*<[ib]>)', r'\1\2\3', fixed)
-        fixed = re.sub(r'"""', r'\\"', fixed)
-        fixed = re.sub(r'""(?!")', r'\\"', fixed)
-        fixed = re.sub(r'"([^"]*)"([^",\n}]+)"', r'"\1\2"', fixed)
-        
-        try:
-            result = json.loads(fixed)
-            print("✅ JSON fixed successfully!")
-            # Ensure it's always a list
-            if isinstance(result, dict):
-                result = [result]
-            return result
-        except json.JSONDecodeError as e2:
-            print(f"❌ Cannot auto-fix this JSON. Error: {e2}")
-            # Last resort: extract valid objects
-            return extract_valid_objects(fixed)
+        # More aggressive approach - extract data patterns directly
+        return extract_data_patterns(raw_json)
 
-def extract_valid_objects(broken_json):
-    """Extract valid JSON objects from broken JSON"""
-    lines = broken_json.strip().split('\n')
-    
-    if lines[0].strip() == '[':
-        lines = lines[1:]
-    if lines[-1].strip() == ']':
-        lines = lines[:-1]
-    
+def extract_data_patterns(raw_text):
+    """
+    Extract Source/Target pairs from broken JSON using regex patterns
+    """
     objects = []
-    current_obj_lines = []
-    brace_count = 0
+    
+    # Pattern 1: Look for complete objects with Source and Target
+    object_pattern = r'"Source":\s*"([^"]*(?:\\"[^"]*)*)",\s*"Target":\s*"([^"]*(?:\\"[^"]*)*)"'
+    matches = re.findall(object_pattern, raw_text, re.DOTALL)
+    
+    for source, target in matches:
+        # Clean up escaped quotes
+        source = source.replace('\\"', '"')
+        target = target.replace('\\"', '"')
+        objects.append({"Source": source, "Target": target})
+    
+    if objects:
+        print(f"✅ Extracted {len(objects)} objects using pattern matching")
+        return objects
+    
+    # Pattern 2: Line-by-line extraction for very broken JSON
+    return extract_line_by_line(raw_text)
+
+def extract_line_by_line(raw_text):
+    """
+    Last resort: extract data line by line
+    """
+    lines = raw_text.split('\n')
+    objects = []
+    current_source = None
+    current_target = None
     
     for line in lines:
         line = line.strip()
-        if not line:
-            continue
-            
-        current_obj_lines.append(line.rstrip(','))
-        brace_count += line.count('{') - line.count('}')
         
-        if brace_count == 0 and current_obj_lines:
-            obj_str = '\n'.join(current_obj_lines)
-            try:
-                obj = json.loads(obj_str)
-                objects.append(obj)
-            except json.JSONDecodeError:
-                pass
-            current_obj_lines = []
+        # Look for Source line
+        source_match = re.search(r'"Source":\s*"([^"]*(?:\\"[^"]*)*)"', line)
+        if source_match:
+            current_source = source_match.group(1).replace('\\"', '"')
+        
+        # Look for Target line
+        target_match = re.search(r'"Target":\s*"([^"]*(?:\\"[^"]*)*)"', line)
+        if target_match:
+            current_target = target_match.group(1).replace('\\"', '"')
+        
+        # When we have both, create an object
+        if current_source and current_target:
+            objects.append({"Source": current_source, "Target": current_target})
+            current_source = None
+            current_target = None
     
-    if not objects:
-        raise ValueError("Could not extract any valid JSON objects")
+    if objects:
+        print(f"✅ Extracted {len(objects)} objects line by line")
+        return objects
     
-    print(f"✅ Extracted {len(objects)} valid objects")
-    return objects
+    # Pattern 3: Try to find any text patterns that look like translations
+    return extract_translation_pairs(raw_text)
+
+def extract_translation_pairs(raw_text):
+    """
+    Extract any translation-like patterns from the text
+    """
+    objects = []
+    
+    # Look for any quoted strings that might be source/target pairs
+    # This is very permissive
+    quotes = re.findall(r'"([^"]*(?:\\"[^"]*)*)"', raw_text)
+    
+    # Group them in pairs (assuming Source, Target, Source, Target pattern)
+    for i in range(0, len(quotes) - 1, 2):
+        if i + 1 < len(quotes):
+            source = quotes[i].replace('\\"', '"')
+            target = quotes[i + 1].replace('\\"', '"')
+            
+            # Skip if they look like keys rather than values
+            if source.lower() in ['source', 'target']:
+                continue
+                
+            objects.append({"Source": source, "Target": target})
+    
+    if objects:
+        print(f"✅ Extracted {len(objects)} translation pairs")
+        return objects
+    
+    raise ValueError("Could not extract any translation data from the input")
 
 def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='result.po'):
     """Convert JSON to PO file with automatic data type handling"""
@@ -233,6 +234,8 @@ def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='r
     
     # Build translation map
     translation_map = {}
+    processed = 0
+    
     for i, item in enumerate(translated_list):
         if not isinstance(item, dict):
             print(f"⚠️ Skipping item {i}: not a dictionary")
@@ -245,19 +248,22 @@ def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='r
         source_raw = item["Source"]
         target_text = item["Target"]
         
-        # Extract text from Source (handle dict strings)
-        if isinstance(source_raw, str) and source_raw.startswith("{'text':"):
-            try:
-                source_dict = ast.literal_eval(source_raw)
-                source_text = source_dict['text']
-            except:
-                source_text = source_raw
-        else:
-            source_text = source_raw
-            
-        translation_map[source_text] = target_text
+        # Extract text from Source (handle dict strings like {'text': 'content'})
+        source_text = extract_source_text(source_raw)
+        
+        if source_text and target_text:
+            translation_map[source_text] = target_text
+            processed += 1
+        
+        # Debug first few items
+        if i < 3:
+            print(f"  Item {i+1}: '{source_text[:50]}...' -> '{target_text[:50]}...'")
     
-    print(f"Built translation map with {len(translation_map)} entries")
+    print(f"Built translation map with {processed} valid entries")
+    
+    if not translation_map:
+        print("❌ No valid translation pairs found")
+        return
     
     # Apply to PO file
     try:
@@ -275,6 +281,52 @@ def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='r
         
     except Exception as e:
         print(f"❌ Error processing PO file: {e}")
+
+def extract_source_text(source_raw):
+    """Extract actual text from various Source formats"""
+    if not source_raw:
+        return ""
+    
+    # Handle dict strings like "{'text': 'actual content'}"
+    if isinstance(source_raw, str) and source_raw.startswith("{'text':"):
+        try:
+            source_dict = ast.literal_eval(source_raw)
+            if isinstance(source_dict, dict) and 'text' in source_dict:
+                return source_dict['text']
+        except:
+            pass
+    
+    # Handle JSON strings like '{"text": "actual content"}'
+    if isinstance(source_raw, str) and source_raw.startswith('{"text":'):
+        try:
+            source_dict = json.loads(source_raw)
+            if isinstance(source_dict, dict) and 'text' in source_dict:
+                return source_dict['text']
+        except:
+            pass
+    
+    # Return as-is if no special format detected
+    return str(source_raw)
+
+# Debug function to test with your data
+def debug_extraction(raw_json):
+    """Debug what can be extracted from your raw JSON"""
+    print("=== DEBUGGING EXTRACTION ===")
+    
+    try:
+        result = auto_fix_json(raw_json)
+        print(f"✅ Successfully extracted {len(result)} items")
+        
+        # Show first few items
+        for i, item in enumerate(result[:3]):
+            print(f"Item {i+1}:")
+            print(f"  Source: {item.get('Source', 'N/A')[:100]}...")
+            print(f"  Target: {item.get('Target', 'N/A')[:100]}...")
+        
+        return result
+    except Exception as e:
+        print(f"❌ Extraction failed: {e}")
+        return None
         
 def get_prompt(text, src, trg, tone, domain, instruction, mandatory_translations):
     if trg == 'bn':
@@ -1603,6 +1655,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
