@@ -818,18 +818,14 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
                 '''.format(source, target, domain, tone, source, target, mandatory_translations, instruction, res_schema, text_json)
 
     response = llm_model.generate_content(prompt)
-    raw = response.text
-    #result = auto_fix_json(raw)
-    #print("Success! Parsed JSON:")
-    # Ensure the raw response is treated as a string before regex
-    #print(raw)
-    #json_data = json.dumps(raw)
-    print(raw)
-    #print('########################################')
-    #print(json_data)
+    result = response.text
+    if isinstance(result, str):
+        translated_list = json.loads(result)
+    else:
+        translated_list = result
 
 
-    return raw # Return as a list of dictionaries
+    return translated_list # Return as a list of dictionaries
 
 def batch_translate_json(json_payload, source, target, tone, domain, instruction, mandatory_translations,  batch_size=50, delay=2):
     result = []
@@ -1492,6 +1488,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
