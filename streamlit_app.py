@@ -31,6 +31,7 @@ import subprocess
 import time
 from lxml import etree
 import tempfile
+import ast
 
 # --- USER AUTHENTICATION ---
 names = ["Asif Iqbal", "Sadullah Saad", "Faheem Ahmad"]
@@ -987,16 +988,28 @@ def inject_translations_to_xliff(uploaded_file, po_path='result.po'):
     print(f"[OK] Injected translations into: {output_path}")
     return output_path
 def json_to_po(translated_list, original_po_path = 'cleaned.po', output_po_path = 'result.po'):
-    # Convert your list of dicts to a lookup dict for fast access
-    translation_map = {item["Source"]: item["Target"] for item in translated_list}
-
+    # Extract actual text from Source field
+    translation_map = {}
+    for item in translated_list:
+        source_raw = item["Source"]
+        # Extract text from "{'text': 'actual text'}" format
+        if source_raw.startswith("{'text':"):
+            try:
+                source_dict = ast.literal_eval(source_raw)
+                source_text = source_dict['text']
+            except:
+                source_text = source_raw
+        else:
+            source_text = source_raw
+            
+        translation_map[source_text] = item["Target"]
+    
     po = polib.pofile(original_po_path)
-
     for entry in po:
         src = entry.msgid.strip()
         if src in translation_map:
-            entry.msgstr = translation_map[src] or ""  # assign translated text
-
+            entry.msgstr = translation_map[src] or ""
+    
     po.save(output_po_path)
     print(f"[DONE] Saved translated PO file: {output_po_path}")
 
@@ -1590,6 +1603,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
