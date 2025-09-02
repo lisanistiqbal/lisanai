@@ -110,8 +110,8 @@ safety_settings = [
 
 def json_to_po(translated_list, original_po_path = 'cleaned.po', output_po_path = 'result.po'):
     # Convert your list of dicts to a lookup dict for fast access
-    print(translated_list)
-    translation_map = {item["Source"]: item["Target"] for item in translated_list}
+    print(type(translated_list))
+    translation_map = {item["Source"]: item["Target"] for item in eval(translated_list)}
     po = polib.pofile(original_po_path)
     for entry in po:
         src = entry.msgid.strip()
@@ -1451,6 +1451,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
