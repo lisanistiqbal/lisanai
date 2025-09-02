@@ -782,13 +782,13 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
     #print("Success! Parsed JSON:")
     # Ensure the raw response is treated as a string before regex
     #print(raw)
-    json_data = json.dumps(raw)
+    #json_data = json.dumps(raw)
     print(raw)
-    print('########################################')
-    print(json_data)
+    #print('########################################')
+    #print(json_data)
 
 
-    return json_data # Return as a list of dictionaries
+    return raw # Return as a list of dictionaries
 
 def batch_translate_json(json_payload, source, target, tone, domain, instruction, mandatory_translations,  batch_size=50, delay=2):
     result = []
@@ -1451,6 +1451,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
