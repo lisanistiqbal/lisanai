@@ -764,10 +764,10 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
     response = llm_model.generate_content(prompt)
     raw = response.text
     # Ensure the raw response is treated as a string before regex
-    json_str = eval(raw)
+    json_data = json.loads(raw)
 
 
-    return json_str # Return as a list of dictionaries
+    return json_data # Return as a list of dictionaries
 
 def batch_translate_json(json_payload, source, target, tone, domain, instruction, mandatory_translations,  batch_size=50, delay=2):
     result = []
@@ -1443,6 +1443,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
