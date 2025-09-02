@@ -106,6 +106,150 @@ safety_settings = [
     ),
 ]
 
+def auto_fix_json(raw_json):
+    """
+    Automatically detect and fix common JSON issues
+    Returns the parsed JSON data or raises an exception with details
+    """
+    original = raw_json
+    fixed = raw_json
+    
+    try:
+        # Try parsing original first
+        return json.loads(raw_json)
+    except json.JSONDecodeError as e:
+        print(f"JSON Error detected: {e}")
+        print(f"Position: line {e.lineno}, column {e.colno}")
+        
+        # Apply fixes in order of most common issues
+        
+        # Fix 1: Remove trailing commas
+        fixed = re.sub(r',(\s*[}\]])', r'\1', fixed)
+        
+        # Fix 2: Escape unescaped quotes in string values
+        # This handles quotes that are inside string values but not escaped
+        lines = fixed.split('\n')
+        fixed_lines = []
+        
+        for line in lines:
+            # Look for patterns like "Target": "text with "unescaped" quotes"
+            if '"Target":' in line or '"Source":' in line:
+                # Find the value part after the colon
+                colon_pos = line.find(':')
+                if colon_pos != -1:
+                    key_part = line[:colon_pos + 1]
+                    value_part = line[colon_pos + 1:].strip()
+                    
+                    # If value starts and ends with quotes, fix internal quotes
+                    if value_part.startswith('"') and value_part.rstrip(',').endswith('"'):
+                        # Remove outer quotes temporarily
+                        inner_value = value_part[1:value_part.rstrip(',').rfind('"')]
+                        # Escape any unescaped quotes in the inner value
+                        inner_value = inner_value.replace('\\"', '___ESCAPED_QUOTE___')  # Preserve already escaped
+                        inner_value = inner_value.replace('"', '\\"')  # Escape unescaped quotes
+                        inner_value = inner_value.replace('___ESCAPED_QUOTE___', '\\"')  # Restore escaped quotes
+                        
+                        # Reconstruct the line
+                        ending = ',' if value_part.rstrip().endswith(',') else ''
+                        value_part = f'"{inner_value}"{ending}'
+                    
+                    line = key_part + ' ' + value_part
+            
+            fixed_lines.append(line)
+        
+        fixed = '\n'.join(fixed_lines)
+        
+        # Fix 3: Handle malformed quote patterns
+        # Fix quotes at the beginning of values that might be malformed
+        fixed = re.sub(r':\s*"\{([^}]*)\}([^"]*)"([^",\n]*)"', r': "{\1}\2\3"', fixed)
+        
+        # Fix 4: Handle specific patterns from your data
+        # Fix the pattern where quotes appear after closing braces
+        fixed = re.sub(r'(<[ib]>)"([^"]*)"([^"]*<[ib]>)', r'\1\2\3', fixed)
+        
+        # Fix 5: Clean up any remaining quote issues
+        # Replace sequences of multiple quotes with properly escaped quotes
+        fixed = re.sub(r'"""', r'\\"', fixed)
+        fixed = re.sub(r'""(?!")', r'\\"', fixed)
+        
+        # Try parsing after each fix
+        try:
+            result = json.loads(fixed)
+            print("✅ JSON fixed successfully!")
+            return result
+        except json.JSONDecodeError as e2:
+            print(f"Still have error after basic fixes: {e2}")
+            
+            # More aggressive fixes
+            # Fix 6: Handle the specific error pattern in your data
+            # Look for problematic patterns around the error position
+            error_pos = e2.pos
+            context_start = max(0, error_pos - 100)
+            context_end = min(len(fixed), error_pos + 100)
+            context = fixed[context_start:context_end]
+            
+            print(f"Error context: {context}")
+            
+            # Fix specific patterns that cause issues
+            # Pattern: "text"more text" -> "text more text"
+            fixed = re.sub(r'"([^"]*)"([^",\n}]+)"', r'"\1\2"', fixed)
+            
+            # Pattern: Fix quotes that break JSON structure
+            fixed = re.sub(r'}\s*"([^"]*)"([^{]*){', r'}, "\1\2": {', fixed)
+            
+            try:
+                result = json.loads(fixed)
+                print("✅ JSON fixed with aggressive fixes!")
+                return result
+            except json.JSONDecodeError as e3:
+                print(f"❌ Cannot auto-fix this JSON. Error: {e3}")
+                
+                # Last resort: try to extract valid objects manually
+                print("Attempting to extract valid JSON objects...")
+                return extract_valid_objects(fixed)
+
+def extract_valid_objects(broken_json):
+    """
+    Extract valid JSON objects from broken JSON
+    """
+    # Split by lines and try to reconstruct valid objects
+    lines = broken_json.strip().split('\n')
+    
+    # Remove the outer array brackets if present
+    if lines[0].strip() == '[':
+        lines = lines[1:]
+    if lines[-1].strip() == ']':
+        lines = lines[:-1]
+    
+    objects = []
+    current_obj_lines = []
+    brace_count = 0
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        current_obj_lines.append(line.rstrip(','))
+        brace_count += line.count('{') - line.count('}')
+        
+        # When braces are balanced, we have a complete object
+        if brace_count == 0 and current_obj_lines:
+            obj_str = '\n'.join(current_obj_lines)
+            try:
+                obj = json.loads(obj_str)
+                objects.append(obj)
+            except json.JSONDecodeError as e:
+                print(f"⚠️ Skipping invalid object: {obj_str[:50]}...")
+            
+            current_obj_lines = []
+    
+    if not objects:
+        raise ValueError("Could not extract any valid JSON objects")
+    
+    print(f"✅ Extracted {len(objects)} valid objects from broken JSON")
+    return objects
+
 def get_prompt(text, src, trg, tone, domain, instruction, mandatory_translations):
     if trg == 'bn':
         prompt = """
@@ -763,9 +907,11 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
 
     response = llm_model.generate_content(prompt)
     raw = response.text
+    result = auto_fix_json(raw)
+    print("Success! Parsed JSON:")
     # Ensure the raw response is treated as a string before regex
-    print(raw)
-    json_data = json.loads(raw)
+    #print(raw)
+    json_data = json.dumps(result, indent=2, ensure_ascii=False)
 
 
     return json_data # Return as a list of dictionaries
@@ -1213,7 +1359,7 @@ else:
         source = st.selectbox(
             "Source Language",
             keys_lang,
-            index=48,
+            index=49,
             key="source_lang"
         )
     with b3:
@@ -1444,6 +1590,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
