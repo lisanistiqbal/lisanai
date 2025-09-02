@@ -108,109 +108,6 @@ safety_settings = [
 ]
 
 
-def auto_fix_json(raw_json):
-    """
-    Robust JSON fixer that handles severely broken JSON
-    """
-    try:
-        # Try parsing original first
-        result = json.loads(raw_json)
-        if isinstance(result, dict):
-            result = [result]
-        return result
-    except json.JSONDecodeError as e:
-        print(f"JSON Error: {e}")
-        print(f"Attempting aggressive fixes...")
-        
-        # More aggressive approach - extract data patterns directly
-        return extract_data_patterns(raw_json)
-
-def extract_data_patterns(raw_text):
-    """
-    Extract Source/Target pairs from broken JSON using regex patterns
-    """
-    objects = []
-    
-    # Pattern 1: Look for complete objects with Source and Target
-    object_pattern = r'"Source":\s*"([^"]*(?:\\"[^"]*)*)",\s*"Target":\s*"([^"]*(?:\\"[^"]*)*)"'
-    matches = re.findall(object_pattern, raw_text, re.DOTALL)
-    
-    for source, target in matches:
-        # Clean up escaped quotes
-        source = source.replace('\\"', '"')
-        target = target.replace('\\"', '"')
-        objects.append({"Source": source, "Target": target})
-    
-    if objects:
-        print(f"✅ Extracted {len(objects)} objects using pattern matching")
-        return objects
-    
-    # Pattern 2: Line-by-line extraction for very broken JSON
-    return extract_line_by_line(raw_text)
-
-def extract_line_by_line(raw_text):
-    """
-    Last resort: extract data line by line
-    """
-    lines = raw_text.split('\n')
-    objects = []
-    current_source = None
-    current_target = None
-    
-    for line in lines:
-        line = line.strip()
-        
-        # Look for Source line
-        source_match = re.search(r'"Source":\s*"([^"]*(?:\\"[^"]*)*)"', line)
-        if source_match:
-            current_source = source_match.group(1).replace('\\"', '"')
-        
-        # Look for Target line
-        target_match = re.search(r'"Target":\s*"([^"]*(?:\\"[^"]*)*)"', line)
-        if target_match:
-            current_target = target_match.group(1).replace('\\"', '"')
-        
-        # When we have both, create an object
-        if current_source and current_target:
-            objects.append({"Source": current_source, "Target": current_target})
-            current_source = None
-            current_target = None
-    
-    if objects:
-        print(f"✅ Extracted {len(objects)} objects line by line")
-        return objects
-    
-    # Pattern 3: Try to find any text patterns that look like translations
-    return extract_translation_pairs(raw_text)
-
-def extract_translation_pairs(raw_text):
-    """
-    Extract any translation-like patterns from the text
-    """
-    objects = []
-    
-    # Look for any quoted strings that might be source/target pairs
-    # This is very permissive
-    quotes = re.findall(r'"([^"]*(?:\\"[^"]*)*)"', raw_text)
-    
-    # Group them in pairs (assuming Source, Target, Source, Target pattern)
-    for i in range(0, len(quotes) - 1, 2):
-        if i + 1 < len(quotes):
-            source = quotes[i].replace('\\"', '"')
-            target = quotes[i + 1].replace('\\"', '"')
-            
-            # Skip if they look like keys rather than values
-            if source.lower() in ['source', 'target']:
-                continue
-                
-            objects.append({"Source": source, "Target": target})
-    
-    if objects:
-        print(f"✅ Extracted {len(objects)} translation pairs")
-        return objects
-    
-    raise ValueError("Could not extract any translation data from the input")
-
 def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='result.po'):
     """Convert JSON to PO file with automatic data type handling"""
     import polib
@@ -985,11 +882,11 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
 
     response = llm_model.generate_content(prompt)
     raw = response.text
-    result = auto_fix_json(raw)
-    print("Success! Parsed JSON:")
+    #result = auto_fix_json(raw)
+    #print("Success! Parsed JSON:")
     # Ensure the raw response is treated as a string before regex
     #print(raw)
-    json_data = json.dumps(result, indent=2, ensure_ascii=False)
+    json_data = json.dumps(raw)
 
 
     return json_data # Return as a list of dictionaries
@@ -1655,6 +1552,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
