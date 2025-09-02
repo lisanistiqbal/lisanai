@@ -107,8 +107,37 @@ safety_settings = [
     ),
 ]
 
+def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='result.po'):
 
-def json_to_po(translated_list, original_po_path = 'cleaned.po', output_po_path = 'result.po'):
+    translation_map = {}
+    for item in translated_list:
+        raw_src = item["Source"]
+
+        # Try to safely eval strings like "{'text': 'something'}"
+        try:
+            parsed = ast.literal_eval(raw_src)
+            if isinstance(parsed, dict) and "text" in parsed:
+                clean_src = parsed["text"]
+            else:
+                clean_src = raw_src
+        except Exception:
+            clean_src = raw_src
+
+        translation_map[clean_src.strip()] = item["Target"]
+
+    # Load po file
+    po = polib.pofile(original_po_path)
+
+    for entry in po:
+        src = entry.msgid.strip()
+        if src in translation_map:
+            entry.msgstr = translation_map[src] or ""
+
+    po.save(output_po_path)
+    print(f"[DONE] Saved translated PO file: {output_po_path}")
+
+
+def json_to_po1(translated_list, original_po_path = 'cleaned.po', output_po_path = 'result.po'):
     # Convert your list of dicts to a lookup dict for fast access
     print(type(translated_list))
     translation_map = {item["Source"]: item["Target"] for item in eval(translated_list)}
@@ -1451,6 +1480,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
