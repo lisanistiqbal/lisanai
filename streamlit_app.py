@@ -764,6 +764,7 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
     response = llm_model.generate_content(prompt)
     raw = response.text
     # Ensure the raw response is treated as a string before regex
+    print(raw)
     json_data = json.loads(raw)
 
 
@@ -1443,6 +1444,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
