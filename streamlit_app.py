@@ -783,6 +783,9 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
     # Ensure the raw response is treated as a string before regex
     #print(raw)
     json_data = json.dumps(raw)
+    print(raw)
+    print('########################################')
+    print(json_data)
 
 
     return json_data # Return as a list of dictionaries
@@ -1448,6 +1451,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
