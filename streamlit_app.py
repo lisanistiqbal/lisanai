@@ -108,12 +108,13 @@ safety_settings = [
 ]
 
 def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='result.po'):
-
     translation_map = {}
+    translated_list = ast.literal_eval(translated_list)
+
     for item in translated_list:
         raw_src = item["Source"]
 
-        # Try to safely eval strings like "{'text': 'something'}"
+        # Handle cases like "{'text': 'xyz'}"
         try:
             parsed = ast.literal_eval(raw_src)
             if isinstance(parsed, dict) and "text" in parsed:
@@ -123,9 +124,20 @@ def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='r
         except Exception:
             clean_src = raw_src
 
-        translation_map[clean_src.strip()] = item["Target"]
+        # Also clean Target if it's wrapped in dict-like string
+        raw_target = item["Target"]
+        try:
+            parsed_t = ast.literal_eval(raw_target)
+            if isinstance(parsed_t, dict) and "text" in parsed_t:
+                clean_target = parsed_t["text"]
+            else:
+                clean_target = raw_target
+        except Exception:
+            clean_target = raw_target
 
-    # Load po file
+        translation_map[clean_src.strip()] = clean_target.strip()
+
+    # Process the .po file
     po = polib.pofile(original_po_path)
 
     for entry in po:
@@ -1480,6 +1492,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
