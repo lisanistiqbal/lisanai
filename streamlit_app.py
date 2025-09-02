@@ -108,122 +108,17 @@ safety_settings = [
 ]
 
 
-def json_to_po(translated_list, original_po_path='cleaned.po', output_po_path='result.po'):
-    """Convert JSON to PO file with automatic data type handling"""
-    import polib
+def json_to_po(translated_list, original_po_path = 'cleaned.po', output_po_path = 'result.po'):
+    # Convert your list of dicts to a lookup dict for fast access
+    translation_map = {item["Source"]: item["Target"] for item in translated_list}
+    po = polib.pofile(original_po_path)
+    for entry in po:
+        src = entry.msgid.strip()
+        if src in translation_map:
+            entry.msgstr = translation_map[src] or ""  # assign translated text
+    po.save(output_po_path)
+    print(f"[DONE] Saved translated PO file: {output_po_path}")
     
-    # Handle different input types
-    if isinstance(translated_list, str):
-        try:
-            translated_list = json.loads(translated_list)
-        except json.JSONDecodeError:
-            print("❌ Input is string but not valid JSON")
-            return
-    
-    if isinstance(translated_list, dict):
-        translated_list = [translated_list]
-    
-    if not isinstance(translated_list, list):
-        print(f"❌ Invalid input type: {type(translated_list)}")
-        return
-    
-    print(f"Processing {len(translated_list)} items...")
-    
-    # Build translation map
-    translation_map = {}
-    processed = 0
-    
-    for i, item in enumerate(translated_list):
-        if not isinstance(item, dict):
-            print(f"⚠️ Skipping item {i}: not a dictionary")
-            continue
-            
-        if "Source" not in item or "Target" not in item:
-            print(f"⚠️ Skipping item {i}: missing Source/Target")
-            continue
-        
-        source_raw = item["Source"]
-        target_text = item["Target"]
-        
-        # Extract text from Source (handle dict strings like {'text': 'content'})
-        source_text = extract_source_text(source_raw)
-        
-        if source_text and target_text:
-            translation_map[source_text] = target_text
-            processed += 1
-        
-        # Debug first few items
-        if i < 3:
-            print(f"  Item {i+1}: '{source_text[:50]}...' -> '{target_text[:50]}...'")
-    
-    print(f"Built translation map with {processed} valid entries")
-    
-    if not translation_map:
-        print("❌ No valid translation pairs found")
-        return
-    
-    # Apply to PO file
-    try:
-        po = polib.pofile(original_po_path)
-        translated_count = 0
-        
-        for entry in po:
-            src = entry.msgid.strip()
-            if src in translation_map:
-                entry.msgstr = translation_map[src] or ""
-                translated_count += 1
-        
-        po.save(output_po_path)
-        print(f"✅ Translated {translated_count} entries and saved to {output_po_path}")
-        
-    except Exception as e:
-        print(f"❌ Error processing PO file: {e}")
-
-def extract_source_text(source_raw):
-    """Extract actual text from various Source formats"""
-    if not source_raw:
-        return ""
-    
-    # Handle dict strings like "{'text': 'actual content'}"
-    if isinstance(source_raw, str) and source_raw.startswith("{'text':"):
-        try:
-            source_dict = ast.literal_eval(source_raw)
-            if isinstance(source_dict, dict) and 'text' in source_dict:
-                return source_dict['text']
-        except:
-            pass
-    
-    # Handle JSON strings like '{"text": "actual content"}'
-    if isinstance(source_raw, str) and source_raw.startswith('{"text":'):
-        try:
-            source_dict = json.loads(source_raw)
-            if isinstance(source_dict, dict) and 'text' in source_dict:
-                return source_dict['text']
-        except:
-            pass
-    
-    # Return as-is if no special format detected
-    return str(source_raw)
-
-# Debug function to test with your data
-def debug_extraction(raw_json):
-    """Debug what can be extracted from your raw JSON"""
-    print("=== DEBUGGING EXTRACTION ===")
-    
-    try:
-        result = auto_fix_json(raw_json)
-        print(f"✅ Successfully extracted {len(result)} items")
-        
-        # Show first few items
-        for i, item in enumerate(result[:3]):
-            print(f"Item {i+1}:")
-            print(f"  Source: {item.get('Source', 'N/A')[:100]}...")
-            print(f"  Target: {item.get('Target', 'N/A')[:100]}...")
-        
-        return result
-    except Exception as e:
-        print(f"❌ Extraction failed: {e}")
-        return None
         
 def get_prompt(text, src, trg, tone, domain, instruction, mandatory_translations):
     if trg == 'bn':
@@ -1552,6 +1447,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
