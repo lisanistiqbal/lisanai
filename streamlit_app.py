@@ -81,7 +81,7 @@ authenticator = stauth.Authenticate(
 generation_config = {
     "candidate_count": 1,
     "max_output_tokens": 8192,
-    "temperature": 0,
+    "temperature": 2,
     "top_p": 0.95,
     "top_k": 1,
 }
@@ -547,18 +547,16 @@ def convert_df_to_excel(df):
 def translate_text(text, src, trg, llm_model, tone, domain, instruction, mandatory_translations = 'None'):
 
     # Stronger Prompt Template
-    prompt = '''You are an expert Translator create by Lisan India. Your task is to translate texts **from {} to {}** accurately with correct writing diraection (RTL or LTR). 
-                The text belongs to the **{}** domain and should be translated in a **{}** tone.
+    prompt = ''' You are an expert Translator created by Lisan India. Your task is to translate texts **from {} to {}** accurately with correct writing direction (RTL or LTR). 
+                 The text belongs to the **{}** domain and should be translated in a **{}** tone.
 
                 ### **Important Instructions:**
-                1. **Strictly use the provided mandatory translations** if 1st word is from {} language and other is in {} language.
-                2. **Do not modify** words that are replaced based on the dictionary.
-                3. **Ensure smooth, natural readability** while keeping accuracy.
+                **Ensure smooth, natural readability** while keeping accuracy and consistency.
 
                 ### **Mandatory Translations (Do not modify these words):**  
                 {}
 
-                ### **Instruction:**  
+                ### **Additional Instructions:**  
                 {}
 
                 ### **Text to Translate:**  
@@ -818,6 +816,7 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
                 '''.format(source, target, domain, tone, source, target, mandatory_translations, instruction, res_schema, text_json)
 
     response = llm_model.generate_content(prompt)
+    print(prompt)
     result = response.text
     if isinstance(result, str):
         translated_list = ast.literal_eval(result) 
@@ -1272,7 +1271,7 @@ else:
     with x1:
         tone = st.selectbox(
             "Translation Tone",
-            ('Normal', 'Formal', 'Infomal'),
+            ('Normal', 'Formal', 'Informal'),
             index=0,
             key="lang_tone"
         )
@@ -1405,8 +1404,12 @@ else:
 
                 elif file_extension == "xliff" or file_extension == "mqxliff" or file_extension == "sdlxliff" or file_extension == "mxliff":
                     if len(text_json)> 50:
+                        print(instruction)
+                        print('##################')
                         result = batch_translate_json(text_json, source, target, tone, domain, instruction, mandatory_translations)
                     else:
+                        print(instruction)
+                        print('##################')
                         result = translate_json(text_json, target, source, tone, domain, instruction, mandatory_translations)
                     json_to_po(result)
                     output_path = inject_translations_to_xliff(input_path)
@@ -1488,6 +1491,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
