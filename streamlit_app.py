@@ -816,8 +816,9 @@ def translate_json(text_json, target, source, tone, domain, instruction, mandato
                 '''.format(source, target, domain, tone, source, target, mandatory_translations, instruction, res_schema, text_json)
 
     response = llm_model.generate_content(prompt)
-    print(prompt)
+    #print(prompt)
     result = response.text
+    print(result)
     if isinstance(result, str):
         translated_list = ast.literal_eval(result) 
     else:
@@ -1491,6 +1492,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
