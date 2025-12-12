@@ -86,7 +86,7 @@ generation_config = {
     "top_k": 1,
 }
 #api_key = st.secrets["genai"]["api_key"]
-api_key = 'AIzaSyDOAnjxLV_WDqo99cwWdpjcZxyMPVcHKTQ'
+api_key = 'AIzaSyAKic4iR0EuX1Cixvni1RUCjUp1UAqC8YA'
 genai.configure(api_key = api_key)
 safety_settings = [
     SafetySetting(
@@ -1492,6 +1492,7 @@ else:
                                 data=template_byte,
                                 file_name="Chats.xlsx",
                                 mime='application/octet-stream')
+
 
 
 
